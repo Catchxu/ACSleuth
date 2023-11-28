@@ -34,19 +34,16 @@ class Discriminator(nn.Module):
     def __init__(self, in_dim, hidden_dim=[512, 256, 16], n_Res=2):
         super().__init__()
 
-        self.disc_list = nn.ModuleList()
+        # Discriminator layers
+        disc_layers = []
         layers = [in_dim] + hidden_dim
         dim_1 = layers[0]
         for dim_2 in layers[1:]:
-            self.disc_list.append(
-                LinearBlock(dim_1, dim_2)
-            )
+            disc_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
-        self.disc_list.append(
-            nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)])
-        )
+        disc_layers.append(nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)]))
+        self.disc = nn.Sequential(*disc_layers)
 
     def forward(self, x):
-        for layer in self.disc_list:
-            x = layer(x)
+        x = self.disc(x)
         return x

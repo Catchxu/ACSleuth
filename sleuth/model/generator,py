@@ -35,39 +35,25 @@ class SCNet(nn.Module):
     def __init__(self, in_dim, hidden_dim=[512, 256], n_Res=2):
         super().__init__()
 
-        self.encoder_list = nn.ModuleList()
+        # Encoder layers
+        encoder_layers = []
         layers = [in_dim] + hidden_dim
         dim_1 = layers[0]
         for dim_2 in layers[1:]:
-            self.encoder_list.append(
-                LinearBlock(dim_1, dim_2)
-            )
+            encoder_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
-        self.encoder_list.append(
-            nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)])
-        )
+        encoder_layers.append(nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)]))
+        self.Encoder = nn.Sequential(*encoder_layers)
 
-        self.decoder_list = nn.ModuleList()
+        # Decoder layers
+        decoder_layers = []
         layers = layers[::-1]
         dim_1 = layers[0]
-        self.decoder_list.append(
-            nn.Sequential(*[ResBlock[dim_1, dim_1] for _ in range(n_Res)])
-        )
+        decoder_layers.append(nn.Sequential(*[ResBlock[dim_1, dim_1] for _ in range(n_Res)]))
         for dim_2 in layers[1:]:
-            self.decoder_list.append(
-                LinearBlock(dim_1, dim_2)
-            )
+            decoder_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
-    
-    def Encoder(self, x):
-        for layer in self.encoder_list:
-            x = layer(x)
-        return x
-
-    def Decoder(self, x):
-        for layer in self.decoder_list:
-            x = layer(x)
-        return x
+        self.Decoder = nn.Sequential(*decoder_layers)
 
     def forward(self, x):
         x = self.Encoder(x)
