@@ -1,0 +1,89 @@
+import torch.nn as nn
+
+from ._block import MemoryBlock, StyleBlock
+
+
+class LinearBlock(nn.Module):
+    def __init__(self, in_dim, out_dim,
+                 norm: bool = True, act: bool = True, dropout: bool = True):
+        super().__init__()
+        self.linear = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.BatchNorm1d(out_dim) if norm else nn.Identity(),
+            nn.LeakyReLU(0.2, inplace=True) if act else nn.Identity(),
+            nn.Dropout(0.1) if dropout else nn.Identity(),
+        )
+
+    def forward(self, x):
+        return self.linear(x)
+
+
+class ResBlock(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.fc = nn.Sequential(
+            LinearBlock(dim, dim),
+            LinearBlock(dim, dim, False, False, False)
+        )
+        self.act = nn.LeakyReLU(0.2, inplace=True)
+    
+    def forward(self, x):
+        return self.act(x + self.fc(x))
+
+
+class SCNet(nn.Module):
+    def __init__(self, in_dim, hidden_dim=[512, 256], n_Res=2):
+        super().__init__()
+
+        self.encoder_list = nn.ModuleList()
+        layers = [in_dim] + hidden_dim
+        dim_1 = layers[0]
+        for dim_2 in layers[1:]:
+            self.encoder_list.append(
+                LinearBlock(dim_1, dim_2)
+            )
+            dim_1 = dim_2
+        self.encoder_list.append(
+            nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)])
+        )
+
+        self.decoder_list = nn.ModuleList()
+        layers = layers[::-1]
+        dim_1 = layers[0]
+        self.decoder_list.append(
+            nn.Sequential(*[ResBlock[dim_1, dim_1] for _ in range(n_Res)])
+        )
+        for dim_2 in layers[1:]:
+            self.decoder_list.append(
+                LinearBlock(dim_1, dim_2)
+            )
+            dim_1 = dim_2
+    
+    def Encoder(self, x):
+        for layer in self.encoder_list:
+            x = layer(x)
+        return x
+
+    def Decoder(self, x):
+        for layer in self.decoder_list:
+            x = layer(x)
+        return x
+
+    def forward(self, x):
+        x = self.Encoder(x)
+        x = self.Decoder(x)
+        return x
+
+
+
+
+class GeneratorAD(SCNet):
+    def __init__(self, in_dim, hidden_dim=[512, 256], n_Res=2,
+                 mem_dim=512, threshold=0.01, temperature=1):
+        super().__init__(in_dim, hidden_dim, n_Res)
+        self.Memory = MemoryBlock(mem_dim, hidden_dim[-1], threshold, temperature)
+
+    def forward(self, x):
+        z = self.Encoder(x)
+        x = self.Decoder(self.Memory(z))
+        return x, z
