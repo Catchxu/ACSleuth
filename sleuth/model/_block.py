@@ -6,12 +6,12 @@ from torch.nn import functional as F
 
 
 class MemoryBlock(nn.Module):
-    def __init__(self, mem_dim, z_dim, shrink_thres=0.005, tem=0.5):
+    def __init__(self, mem_dim, z_dim, shrink_thres=0.005, temperature=0.5):
         super().__init__()
         self.mem_dim = mem_dim
         self.z_dim = z_dim
         self.shrink_thres = shrink_thres
-        self.tem = tem
+        self.temperature = temperature
         self.register_buffer("mem", torch.randn(self.mem_dim, self.z_dim))
         self.register_buffer("mem_ptr", torch.zeros(1, dtype=torch.long))
 
@@ -39,7 +39,7 @@ class MemoryBlock(nn.Module):
 
     def forward(self, x):
         att_weight = torch.mm(x, self.mem.T)
-        att_weight = F.softmax(att_weight/self.tem, dim=1)
+        att_weight = F.softmax(att_weight/self.temperature, dim=1)
 
         # ReLU based shrinkage, hard shrinkage for positive value
         if (self.shrink_thres > 0):

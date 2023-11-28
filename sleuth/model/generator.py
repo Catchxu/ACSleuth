@@ -55,10 +55,13 @@ class SCNet(nn.Module):
             dim_1 = dim_2
         self.Decoder = nn.Sequential(*decoder_layers)
 
-    def forward(self, x):
-        x = self.Encoder(x)
-        x = self.Decoder(x)
-        return x
+        # Additional initialization
+        self._init_weights()
+    
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight)
 
 
 
@@ -72,4 +75,8 @@ class GeneratorAD(SCNet):
     def forward(self, x):
         z = self.Encoder(x)
         x = self.Decoder(self.Memory(z))
-        return x, z
+        self.Memory.update_mem(z)
+        return x
+    
+    def prepare(self, x):
+        return self.Decoder(self.Encoder(x))

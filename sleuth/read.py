@@ -4,6 +4,8 @@ import anndata as ad
 from math import e
 from typing import Sequence, Optional, Union
 
+from ._utils import clear_warnings
+
 
 def preprocess_data(adata: ad.AnnData, gene_list: Optional[Sequence[str]] = None):
     # clear the obs &var names
@@ -46,6 +48,7 @@ def read_single(data_dir: str, data_name: str, preprocess: bool = True,
     return adata
 
 
+@clear_warnings
 def read(ref_dir: str, ref_name: Union[Sequence[str], str],
          tgt_dir: Optional[str], tgt_name: Union[Sequence[str], str],
          preprocess: bool = True):
