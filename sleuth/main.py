@@ -86,6 +86,8 @@ class CoarseSleuth:
     
     def predictor(self, tgt: ad.AnnData, predict_epochs: 20):
         self._check(tgt)
+
+        tqdm.write('Begin to detect anomalies on the target dataset...')
         test_data = torch.Tensor(tgt.X)
         self.loader = DataLoader(test_data, batch_size=self.bs, shuffle=False,
                                  num_workers=2, pin_memory=True, drop_last=False)
@@ -114,14 +116,18 @@ class CoarseSleuth:
             for _ in range(predict_epochs):
                 t.set_description(f'Predict Epochs')
 
-                _, _, loss = self.P(real_d, fake_d)
+                _, loss = self.P(real_d, fake_d)
                 self.opt_P.zero_grad()
                 loss.backward()
                 self.opt_P.step()
                 self.sch_P.step()
-
-
-
+                t.set_postfix(P_Loss = loss.item())
+                t.update(1)
+        
+        self.P.eval()
+        p, _ = self.P(real_d, fake_d)
+        tqdm.write('Anomalies have been detected.')
+        return p.cpu().detach().numpy()
 
     def _prepare(self, prepare_epochs):
         with tqdm(total=prepare_epochs) as t:

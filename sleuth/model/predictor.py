@@ -41,12 +41,12 @@ class Predictor(nn.Module):
         D2 = self._kernel(fake, fake)
         D3 = self._kernel(real, fake)
         return D1 + D2 - D3 - D3.T
-    
+
     def forward(self, real, fake):
         p = self.pred(real - fake)
         A = 1 - p.view(-1, 1) - p.view(1, -1)
         MMD = self._MMD(real, fake)
-        MMDLoss = A * MMD
-        return p, MMDLoss
+        loss = torch.mean(A * MMD)
+        return p, loss
         
         
