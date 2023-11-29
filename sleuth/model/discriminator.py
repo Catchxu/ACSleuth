@@ -34,7 +34,7 @@ class ResBlock(nn.Module):
     
 
 class Discriminator(nn.Module):
-    def __init__(self, in_dim, hidden_dim=[512, 256, 16], n_Res=2):
+    def __init__(self, in_dim, hidden_dim=[512, 256, 64], n_Res=2):
         super().__init__()
 
         # Discriminator layers
@@ -46,6 +46,9 @@ class Discriminator(nn.Module):
             dim_1 = dim_2
         disc_layers.append(nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)]))
         self.disc = nn.Sequential(*disc_layers)
+
+        self.in_dim = in_dim
+        self.hidden_dim = hidden_dim
     
         # Additional initialization
         self._init_weights()
