@@ -245,6 +245,7 @@ class CoarseSleuth:
                 fake_data.append(fake.detach())
   
         fake_data = torch.cat(fake_data, dim=0)
+        delta = real_data - fake_data
         self.P = Predictor(tgt.n_vars).to(self.device)
         self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
 
@@ -253,7 +254,7 @@ class CoarseSleuth:
             for _ in range(self.predict_epochs):
                 t.set_description(f'Predict Epochs')
 
-                _, loss = self.P.forward(real_data, fake_data)
+                _, loss = self.P.forward(delta)
                 self.opt_P.zero_grad()
                 loss.backward()
                 self.opt_P.step()
@@ -262,7 +263,7 @@ class CoarseSleuth:
                 t.update(1)
         
         self.P.eval()
-        p, _ = self.forward(real_data, fake_data)
+        p = self.P.pred(delta)
         tqdm.write('Anomalies have been detected.')
         return p.cpu().detach().numpy()
 

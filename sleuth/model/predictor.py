@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -30,6 +31,30 @@ class Predictor(nn.Module):
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight)
     
+    def _est_m_n(self, p):
+        n = torch.sum(p)
+        m = p.shape[0] - n
+        return m, n
+
+    def _gamma(self, p):
+        m, n = self._est_m_n(p)
+        pi_p = math.pi * p
+        cof = torch.mm(pi_p, pi_p.t()) / (math.pi * math.pi)
+        
+        term1 = m * (m - 1) * torch.mm(p, p.t())
+        term2 = m * n * torch.mm(p - 1, p.t())
+        term3 = m * n * torch.mm(p, (p - 1).t())
+        term4 = n * (n - 1) * torch.mm(p - 1, (p - 1).t())
+        
+        result = cof / (term1 - term2 - term3 + term4 + 1e-5)
+        return result
+
+    def _loss(self, delta, p):
+        gamma = self._gamma(p)
+        k = torch.mm(delta, delta.t())
+        loss = k * gamma
+        return torch.mean(k * gamma)
+
     def _kernel(self, x, y):
         D = F.pairwise_distance(x.unsqueeze(1), y.unsqueeze(0), p=2)
         kernel = torch.exp(-0.5 * (D / self.kernel_size)**2)
@@ -41,11 +66,9 @@ class Predictor(nn.Module):
         D3 = self._kernel(real, fake)
         return D1 + D2 - D3 - D3.T
 
-    def forward(self, real, fake):
-        p = self.pred(real - fake)
-        A = 1 - p.view(-1, 1) - p.view(1, -1)
-        MMD = self._MMD(real, fake)
-        loss = torch.mean(A * MMD)
+    def forward(self, delta):
+        p = self.pred(delta)
+        loss = self._loss(delta, p)
         return p, loss
         
         
