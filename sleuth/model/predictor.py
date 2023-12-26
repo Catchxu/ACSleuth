@@ -19,7 +19,8 @@ class Predictor(nn.Module):
         pred_layers.append(nn.Sequential(*[ResBlock(dim_2) for _ in range(n_Res)]))
         
         # output layer
-        pred_layers.append(LinearBlock(dim_2, 1))
+        pred_layers.append(nn.Linear(dim_2, 1))
+        pred_layers.append(nn.Sigmoid())
         self.pred = nn.Sequential(*pred_layers)
 
         # Additional initialization
@@ -44,7 +45,7 @@ class Predictor(nn.Module):
         term2 = m * n * torch.mm(p - 1, p.t())
         term3 = m * n * torch.mm(p, (p - 1).t())
         term4 = n * (n - 1) * torch.mm(p - 1, (p - 1).t())
-        
+
         result = cof / (term1 - term2 - term3 + term4 + 1e-5)
         return result
 
@@ -54,7 +55,7 @@ class Predictor(nn.Module):
         return torch.mean(k * gamma)
 
     def forward(self, delta):
-        p = torch.sigmoid(self.pred(delta))
+        p = self.pred(delta)
         loss = self._loss(delta, p)
         return p, loss
         

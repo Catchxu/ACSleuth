@@ -22,7 +22,7 @@ def preprocess_data(adata, gene_list=None):
     # normalization
     sc.pp.normalize_total(adata)
     sc.pp.log1p(adata, base=e)
-    sc.pp.scale(adata, zero_center=True, max_value=1, min_value=-1)
+    # sc.pp.scale(adata, zero_center=True, max_value=1, min_value=-1)
     return adata
 
 
