@@ -22,6 +22,30 @@ class CoarseSleuth:
                  GPU: bool = True,
                  weight: Optional[Dict[str, float]] = None,
                  random_state: Optional[int] = None):
+        """
+        Initializes the CoarseSleuth class with hyperparameters and optional settings.
+
+        Parameters
+        ----------
+        prepare_epochs : int, optional
+            Number of epochs for the preparation phase.
+        train_epochs : int, optional
+            Number of epochs for the training phase.
+        predict_epochs : int, optional
+            Number of epochs for the prediction phase.
+        batch_size : int, optional
+            Batch size for DataLoader.
+        learning_rate : float, optional
+            Initial learning rate for the optimizer.
+        n_critic : int, optional
+            Number of discriminator updates per generator update.
+        GPU : bool, optional
+            If True, uses GPU if available; otherwise, uses CPU.
+        weight : dict, optional
+            Dictionary containing weights for losses.
+        random_state : int, optional
+            Seed for reproducibility.
+        """
         self.prepare_epochs = prepare_epochs
         self.train_epochs = train_epochs
         self.predict_epochs = predict_epochs
@@ -35,11 +59,42 @@ class CoarseSleuth:
             seed_everything(random_state)
     
     def _create_opt_sch(self, model, lr, T_max=None):
+        """
+        Creates optimizer and scheduler for a given model.
+
+        Parameters
+        ----------
+        model : torch.nn.Module
+            PyTorch model.
+        lr : float
+            Learning rate.
+        T_max : int, optional
+            Maximum number of iterations for the scheduler.
+
+        Returns
+        -------
+        optimizer : torch.optim.Optimizer
+            PyTorch optimizer.
+        scheduler : torch.optim.lr_scheduler._LRScheduler or None
+            PyTorch scheduler (None if not provided).
+        """
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.5, 0.999))
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=T_max) if T_max else None
         return optimizer, scheduler
 
     def _train(self, epochs, description, prepare):
+        """
+        Training loop for the CoarseSleuth model.
+
+        Parameters
+        ----------
+        epochs : int
+            Number of epochs.
+        description : str
+            Description for tqdm.
+        prepare : bool
+            If True, it's the preparation phase; otherwise, it's the main training phase.
+        """
         with tqdm(total=epochs) as t:
             for _ in range(epochs):
                 t.set_description(description)
@@ -61,6 +116,16 @@ class CoarseSleuth:
                     self.sch_G.step()
 
     def _update_D(self, data, prepare):
+        """
+        Update the discriminator during training.
+
+        Parameters
+        ----------
+        data : torch.Tensor
+            Input data.
+        prepare : bool
+            If True, it's the preparation phase; otherwise, it's the main training phase.
+        """
         fake_data, _ = self.G.prepare(data) if prepare else self.G(data)
 
         d1 = torch.mean(self.D(data))
@@ -73,6 +138,16 @@ class CoarseSleuth:
         self.opt_D.step()
     
     def _update_G(self, data, prepare):
+        """
+        Update the generator during training.
+
+        Parameters
+        ----------
+        data : torch.Tensor
+            Input data.
+        prepare : bool
+            If True, it's the preparation phase; otherwise, it's the main training phase.
+        """
         fake_data, z = self.G.prepare(data) if prepare else self.G(data)
 
         # discriminator provides feedback
@@ -88,6 +163,19 @@ class CoarseSleuth:
         self.G.Memory.update_mem(z)
 
     def _check(self, tgt: ad.AnnData):
+        """
+        Check if the target dataset is compatible with the reference dataset.
+
+        Parameters
+        ----------
+        tgt : anndata.AnnData
+            Target dataset.
+
+        Raises
+        ------
+        RuntimeError
+            If genes are different or if the model is not trained.
+        """
         if (tgt.var_names != self.genes).any():
             raise RuntimeError('Target and reference data have different genes.')
 
@@ -95,6 +183,14 @@ class CoarseSleuth:
             raise RuntimeError('Please train the model first.')
 
     def detect(self, ref: ad.AnnData):
+        """
+        Train the CoarseSleuth model on the reference dataset.
+
+        Parameters
+        ----------
+        ref : anndata.AnnData
+            Reference dataset.
+        """
         tqdm.write('Begin to train ACsleuth on the reference dataset...')
 
         self.genes = ref.var_names
@@ -118,6 +214,19 @@ class CoarseSleuth:
         tqdm.write('Training has been finished.')
     
     def predict(self, tgt: ad.AnnData):
+        """
+        Detect anomalies in the target dataset using the trained CoarseSleuth model.
+
+        Parameters
+        ----------
+        tgt : anndata.AnnData
+            Target dataset.
+
+        Returns
+        -------
+        p : numpy.ndarray
+            Anomaly scores detected in the target dataset.
+        """
         self._check(tgt)
 
         tqdm.write('Begin to detect anomalies on the target dataset...')
