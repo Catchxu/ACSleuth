@@ -12,17 +12,20 @@ from .model import GeneratorAD, Discriminator, Predictor
 
 
 class CoarseSleuth:
-    def __init__(self, 
-                 n_epochs: int = 100,
+    def __init__(self,
+                 prepare_epochs: int = 20,
+                 train_epochs: int = 100,
+                 predict_epochs: int = 20,
                  batch_size: int = 256,
                  learning_rate: float = 1e-4,
-                 n_critic: int = 1, 
+                 n_critic: int = 1,
                  GPU: bool = True,
                  weight: Optional[Dict[str, float]] = None,
-                 random_state: Optional[int] = None,
-                 **kwargs):
-        self.n_epochs = n_epochs
-        self.batch_size = batch_size
+                 random_state: Optional[int] = None):
+        self.prepare_epochs = prepare_epochs
+        self.train_epochs = train_epochs
+        self.predict_epochs = predict_epochs
+        self.bs = batch_size
         self.lr = learning_rate
         self.n_critic = n_critic
         self.device = torch.device("cuda:0" if GPU and torch.cuda.is_available() else "cpu")
@@ -35,7 +38,7 @@ class CoarseSleuth:
         optimizer = optim.Adam(model.parameters(), lr=lr, betas=betas)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=T_max) if T_max else None
         return optimizer, scheduler
-    
+
     def _prepare(self, prepare_epochs):
         with tqdm(total=prepare_epochs) as t:
             for _ in range(prepare_epochs):
@@ -61,8 +64,8 @@ class CoarseSleuth:
         d1 = torch.mean(self.D(data))
         d2 = torch.mean(self.D(fake_data.detach()))
         gp = self.D.gradient_penalty(data, fake_data.detach())
-
         self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
+
         self.opt_D.zero_grad()
         self.D_loss.backward()
         self.opt_D.step()
@@ -89,7 +92,7 @@ class CoarseSleuth:
         if (self.G is None or self.D is None):
             raise RuntimeError('Please train the model first.')
 
-    def detect(self, ref: ad.AnnData, prepare_epochs: int = 20):
+    def detect(self, ref: ad.AnnData):
         tqdm.write('Begin to train ACsleuth on the reference dataset...')
 
         self.genes = ref.var_names
@@ -107,10 +110,10 @@ class CoarseSleuth:
         self.D.train()
         self.G.train()
 
-        self._prepare(prepare_epochs)
+        self._prepare(self.prepare_epochs)
 
-        with tqdm(total=self.n_epochs) as t:
-            for _ in range(self.n_epochs):
+        with tqdm(total=self.train_epochs) as t:
+            for _ in range(self.train_epochs):
                 t.set_description(f'Train Epochs')
 
                 self._train(prepare=False)
@@ -124,7 +127,7 @@ class CoarseSleuth:
         
         tqdm.write('Training has been finished.')
     
-    def predict(self, tgt: ad.AnnData, predict_epochs: int = 20):
+    def predict(self, tgt: ad.AnnData):
         self._check(tgt)
 
         tqdm.write('Begin to detect anomalies on the target dataset...')
@@ -147,13 +150,11 @@ class CoarseSleuth:
         real_d = torch.cat(real_d, dim=0)
         fake_d = torch.cat(fake_d, dim=0)
         self.P = Predictor(self.D.hidden_dim[-1]).to(self.device)
-        self.opt_P = optim.Adam(self.P.parameters(), lr=self.lr, betas=(0.5, 0.999))
-        self.sch_P = optim.lr_scheduler.CosineAnnealingLR(optimizer = self.opt_P,
-                                                          T_max = predict_epochs)
+        self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.n_epochs)
 
         self.P.train()
-        with tqdm(total=predict_epochs) as t:
-            for _ in range(predict_epochs):
+        with tqdm(total=self.predict_epochs) as t:
+            for _ in range(self.predict_epochs):
                 t.set_description(f'Predict Epochs')
 
                 _, loss = self.P(real_d, fake_d)

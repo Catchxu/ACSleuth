@@ -6,7 +6,7 @@ from .generator import LinearBlock, ResBlock
 
 
 class Predictor(nn.Module):
-    def __init__(self, in_dim, n_Res=2, hidden_dim=[16, 1], ):
+    def __init__(self, in_dim, n_Res=2, hidden_dim=[16, 1]):
         super().__init__()
 
         pred_layers = []
