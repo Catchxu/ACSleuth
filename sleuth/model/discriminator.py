@@ -35,6 +35,18 @@ class ResBlock(nn.Module):
 
 class Discriminator(nn.Module):
     def __init__(self, in_dim, hidden_dim=[512, 256, 64], n_Res=2):
+        """
+        Initialize the Discriminator.
+
+        Parameters
+        ----------
+        in_dim : int
+            Input dimension.
+        hidden_dim : list of int, optional
+            List of hidden layer dimensions.
+        n_Res : int, optional
+            Number of residual blocks.
+        """
         super().__init__()
 
         # Discriminator layers
@@ -54,12 +66,29 @@ class Discriminator(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
+        """
+        Initialize weights using Xavier normal initialization.
+        """
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight)
     
     def gradient_penalty(self, real_data, fake_data):
-        '''calculate gradient penalty for training discriminator'''
+        """
+        Calculate gradient penalty for training discriminator.
+
+        Parameters
+        ----------
+        real_data : torch.Tensor
+            Real data.
+        fake_data : torch.Tensor
+            Fake data.
+
+        Returns
+        -------
+        grad_penalty : torch.Tensor
+            Gradient penalty.
+        """
         shapes = [1 if i != 0 else real_data.size(i) for i in range(real_data.dim())]
         cuda = True if torch.cuda.is_available() else False
 
@@ -84,5 +113,18 @@ class Discriminator(nn.Module):
         return grad_penalty
 
     def forward(self, x):
+        """
+        Forward pass of the discriminator.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output data.
+        """
         x = self.disc(x)
         return x

@@ -70,15 +70,63 @@ class SCNet(nn.Module):
 class GeneratorAD(SCNet):
     def __init__(self, in_dim, hidden_dim=[512, 256], n_Res=2,
                  mem_dim=512, threshold=0.01, temperature=1):
+        """
+        Initialize the GeneratorAD.
+
+        Parameters
+        ----------
+        in_dim : int
+            Input dimension.
+        hidden_dim : list of int, optional
+            List of hidden layer dimensions.
+        n_Res : int, optional
+            Number of residual blocks.
+        mem_dim : int, optional
+            Dimension of the memory block.
+        threshold : float, optional
+            Threshold for the memory block.
+        temperature : float, optional
+            Temperature for the memory block.
+        """
         super().__init__(in_dim, hidden_dim, n_Res)
         self.Memory = MemoryBlock(mem_dim, hidden_dim[-1], threshold, temperature)
 
     def forward(self, x):
+        """
+        Forward pass of the generator for training.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output data.
+        z : torch.Tensor
+            Latent representation.
+        """
         z = self.Encoder(x)
         x = self.Decoder(self.Memory(z))
         return x, z
     
     def prepare(self, x):
+        """
+        Prepare for inference by encoding the input.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output data.
+        z : torch.Tensor
+            Latent representation.
+        """
         z = self.Encoder(x)
         x = self.Decoder(z)
         return x, z

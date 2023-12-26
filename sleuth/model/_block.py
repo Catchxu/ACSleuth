@@ -7,6 +7,20 @@ from torch.nn import functional as F
 
 class MemoryBlock(nn.Module):
     def __init__(self, mem_dim, z_dim, shrink_thres=0.005, temperature=0.5):
+        """
+        Initialize the MemoryBlock.
+
+        Parameters
+        ----------
+        mem_dim : int
+            Dimension of the memory.
+        z_dim : int
+            Dimension of the latent representation.
+        shrink_thres : float, optional
+            Threshold for the hard shrinkage operation.
+        temperature : float, optional
+            Temperature for the softmax operation.
+        """
         super().__init__()
         self.mem_dim = mem_dim
         self.z_dim = z_dim
@@ -18,11 +32,22 @@ class MemoryBlock(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """
+        Reset memory parameters with uniform initialization.
+        """
         stdv = 1. / math.sqrt(self.mem.size(1))
         self.mem.data.uniform_(-stdv, stdv)
 
     @torch.no_grad()
     def update_mem(self, z):
+        """
+        Update the memory with a new latent representation.
+
+        Parameters
+        ----------
+        z : torch.Tensor
+            Latent representation to be added to the memory.
+        """
         batch_size = z.shape[0]  # z, B x C
         ptr = int(self.mem_ptr)
         assert self.mem_dim % batch_size == 0
@@ -34,10 +59,40 @@ class MemoryBlock(nn.Module):
         self.mem_ptr[0] = ptr
 
     def hard_shrink_relu(self, x, lambd=0, epsilon=1e-12):
+        """
+        Hard shrinkage operation with ReLU.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor.
+        lambd : float, optional
+            Threshold for the hard shrinkage.
+        epsilon : float, optional
+            Small constant to prevent division by zero.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output tensor after hard shrinkage.
+        """
         x = (F.relu(x-lambd) * x) / (torch.abs(x - lambd) + epsilon)
         return x
 
     def forward(self, x):
+        """
+        Forward pass of the memory block.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output tensor after memory processing.
+        """
         att_weight = torch.mm(x, self.mem.T)
         att_weight = F.softmax(att_weight/self.temperature, dim=1)
 

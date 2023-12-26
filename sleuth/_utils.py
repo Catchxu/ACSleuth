@@ -15,6 +15,9 @@ def seed_everything(seed):
 
 
 def clear_warnings(category=FutureWarning):
+    """
+    Decorator to clear warnings during function execution.
+    """
     def outwrapper(func):
         def wrapper(*args, **kwargs):
             with warnings.catch_warnings():
@@ -27,7 +30,9 @@ def clear_warnings(category=FutureWarning):
 
 
 def evaluate(y_true, y_score):
-    """calculate evaluation metrics"""
+    """
+    Calculate evaluation metrics
+    """
     y_true = pd.Series(y_true)
     y_score = pd.Series(y_score)
 

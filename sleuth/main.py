@@ -126,10 +126,10 @@ class CoarseSleuth:
         prepare : bool
             If True, it's the preparation phase; otherwise, it's the main training phase.
         """
-        fake_data, _ = self.G.prepare(data) if prepare else self.G(data)
+        fake_data, _ = self.G.prepare(data) if prepare else self.G.forward(data)
 
-        d1 = torch.mean(self.D(data))
-        d2 = torch.mean(self.D(fake_data.detach()))
+        d1 = torch.mean(self.D.forward(data))
+        d2 = torch.mean(self.D.forward(fake_data.detach()))
         gp = self.D.gradient_penalty(data, fake_data.detach())
         self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
 
@@ -148,10 +148,10 @@ class CoarseSleuth:
         prepare : bool
             If True, it's the preparation phase; otherwise, it's the main training phase.
         """
-        fake_data, z = self.G.prepare(data) if prepare else self.G(data)
+        fake_data, z = self.G.prepare(data) if prepare else self.G.forward(data)
 
         # discriminator provides feedback
-        d = self.D(fake_data)
+        d = self.D.forward(fake_data)
 
         L_rec = self.L1(data, fake_data)
         L_adv = -torch.mean(d)
