@@ -52,19 +52,7 @@ class Predictor(nn.Module):
     def _loss(self, delta, p):
         gamma = self._gamma(p)
         k = torch.mm(delta, delta.t())
-        loss = k * gamma
         return torch.mean(k * gamma)
-
-    def _kernel(self, x, y):
-        D = F.pairwise_distance(x.unsqueeze(1), y.unsqueeze(0), p=2)
-        kernel = torch.exp(-0.5 * (D / self.kernel_size)**2)
-        return kernel
-    
-    def _MMD(self, real, fake):
-        D1 = self._kernel(real, real)
-        D2 = self._kernel(fake, fake)
-        D3 = self._kernel(real, fake)
-        return D1 + D2 - D3 - D3.T
 
     def forward(self, delta):
         p = self.pred(delta)
