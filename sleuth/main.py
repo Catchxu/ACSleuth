@@ -263,7 +263,7 @@ class CoarseSleuth:
                 t.update(1)
         
         self.P.eval()
-        p = self.P.pred(delta)
+        p = torch.sigmoid(self.P.pred(delta))
         tqdm.write('Anomalies have been detected.')
         return p.cpu().detach().numpy()
 
