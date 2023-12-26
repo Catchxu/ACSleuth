@@ -44,7 +44,7 @@ class Discriminator(nn.Module):
         for dim_2 in layers[1:]:
             disc_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
-        disc_layers.append(nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)]))
+        disc_layers.append(nn.Sequential(*[ResBlock(dim_2) for _ in range(n_Res)]))
         self.disc = nn.Sequential(*disc_layers)
 
         self.in_dim = in_dim

@@ -42,14 +42,14 @@ class SCNet(nn.Module):
         for dim_2 in layers[1:]:
             encoder_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
-        encoder_layers.append(nn.Sequential(*[ResBlock[dim_2, dim_2] for _ in range(n_Res)]))
+        encoder_layers.append(nn.Sequential(*[ResBlock(dim_2) for _ in range(n_Res)]))
         self.Encoder = nn.Sequential(*encoder_layers)
 
         # Decoder layers
         decoder_layers = []
         layers = layers[::-1]
         dim_1 = layers[0]
-        decoder_layers.append(nn.Sequential(*[ResBlock[dim_1, dim_1] for _ in range(n_Res)]))
+        decoder_layers.append(nn.Sequential(*[ResBlock(dim_1) for _ in range(n_Res)]))
         for dim_2 in layers[1:]:
             decoder_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
@@ -76,9 +76,9 @@ class GeneratorAD(SCNet):
     def forward(self, x):
         z = self.Encoder(x)
         x = self.Decoder(self.Memory(z))
-        if self.training:
-            self.Memory.update_mem(z)
-        return x
+        return x, z
     
     def prepare(self, x):
-        return self.Decoder(self.Encoder(x))
+        z = self.Encoder(x)
+        x = self.Decoder(z)
+        return x, z

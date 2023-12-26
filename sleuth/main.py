@@ -14,8 +14,8 @@ from .model import GeneratorAD, Discriminator, Predictor
 class CoarseSleuth:
     def __init__(self, 
                  n_epochs: int = 100,
-                 batch_size: int = 64,
-                 learning_rate: float = 2e-4,
+                 batch_size: int = 256,
+                 learning_rate: float = 1e-4,
                  n_critic: int = 1, 
                  GPU: bool = True,
                  weight: Optional[Dict[str, float]] = None,
@@ -43,13 +43,13 @@ class CoarseSleuth:
         if random_state is not None:
             seed_everything(random_state)
     
-    def detector(self, ref: ad.AnnData, prepare_epochs: 20):
+    def detect(self, ref: ad.AnnData, prepare_epochs=20):
         tqdm.write('Begin to train ACsleuth on the reference dataset...')
 
         self.genes = ref.var_names
         train_data = torch.Tensor(ref.X)
         self.loader = DataLoader(train_data, batch_size=self.bs, shuffle=True,
-                                 num_workers=2, pin_memory=True, drop_last=True)
+                                 num_workers=4, pin_memory=True, drop_last=True)
 
         self.D = Discriminator(ref.n_vars).to(self.device)
         self.G = GeneratorAD(ref.n_vars).to(self.device)
@@ -71,9 +71,7 @@ class CoarseSleuth:
             for _ in range(self.n_epochs):
                 t.set_description(f'Train Epochs')
 
-                for data in self.loader:
-                    data = data.to(self.device)
-                    self._train(prepare=False)
+                self._train(prepare=False)
 
                 # Update learning rate for G and D
                 self.sch_D.step()
@@ -84,14 +82,14 @@ class CoarseSleuth:
         
         tqdm.write('Training has been finished.')
     
-    def predictor(self, tgt: ad.AnnData, predict_epochs: 20):
+    def predict(self, tgt: ad.AnnData, predict_epochs: int = 20):
         self._check(tgt)
 
         tqdm.write('Begin to detect anomalies on the target dataset...')
         test_data = torch.Tensor(tgt.X)
         self.loader = DataLoader(test_data, batch_size=self.bs, shuffle=False,
-                                 num_workers=2, pin_memory=True, drop_last=False)
-        
+                                 num_workers=4, pin_memory=True, drop_last=False)
+
         self.D.eval()
         self.G.eval()
         real_d, fake_d = [], []
@@ -103,14 +101,14 @@ class CoarseSleuth:
 
                 real_d.append(self.D(data).detach())
                 fake_d.append(self.D(fake_data).detach())
-        
+
         real_d = torch.cat(real_d, dim=0)
         fake_d = torch.cat(fake_d, dim=0)
         self.P = Predictor(self.D.hidden_dim[-1]).to(self.device)
         self.opt_P = optim.Adam(self.P.parameters(), lr=self.lr, betas=(0.5, 0.999))
         self.sch_P = optim.lr_scheduler.CosineAnnealingLR(optimizer = self.opt_P,
                                                           T_max = predict_epochs)
-        
+
         self.P.train()
         with tqdm(total=predict_epochs) as t:
             for _ in range(predict_epochs):
@@ -134,26 +132,22 @@ class CoarseSleuth:
             for _ in range(prepare_epochs):
                 t.set_description(f'Prepare Epochs')
 
-                for data in self.loader:
-                    data = data.to(self.device)
-                    self._train(prepare=True)
+                self._train(prepare=True)
 
                 t.set_postfix(G_Loss = self.G_loss.item(),
                               D_Loss = self.D_loss.item())
                 t.update(1)
-    
-    def _train(self, prepare):
-        for _, data in enumerate(self.loader):
-                data = data.to(self.device)
 
-                for _ in range(self.n_critic):
-                    self._update_D(data, prepare)
-                
-                self._update_G(data, prepare)
-    
+    def _train(self, prepare):
+        for data in self.loader:
+            data = data.to(self.device)
+            for _ in range(self.n_critic):
+                self._update_D(data, prepare)
+
+            self._update_G(data, prepare)
+
     def _update_D(self, data, prepare):
-        '''Updating discriminator'''
-        fake_data = self.G.prepare(data) if prepare else self.G(data)
+        fake_data, _ = self.G.prepare(data) if prepare else self.G(data)
 
         d1 = torch.mean(self.D(data))
         d2 = torch.mean(self.D(fake_data.detach()))
@@ -165,9 +159,8 @@ class CoarseSleuth:
         self.opt_D.step()
     
     def _update_G(self, data, prepare):
-        '''Updating generator'''
-        fake_data = self.G.prepare(data) if prepare else self.G(data)
-        
+        fake_data, z = self.G.prepare(data) if prepare else self.G(data)
+
         # discriminator provides feedback
         d = self.D(fake_data)
 
@@ -177,6 +170,8 @@ class CoarseSleuth:
         self.opt_G.zero_grad()
         self.G_loss.backward()
         self.opt_G.step()
+
+        self.G.Memory.update_mem(z)
 
     def _check(self, tgt: ad.AnnData):
         if (tgt.var_names != self.genes).any():

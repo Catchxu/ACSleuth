@@ -14,13 +14,16 @@ def seed_everything(seed):
     torch.backends.cudnn.deterministic = True
 
 
-def clear_warnings(func, category=FutureWarning):
-    def warp(*args, **kwargs):
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=category)
-            temp = func(*args, **kwargs)
-            return temp
-    return warp
+def clear_warnings(category=FutureWarning):
+    def outwrapper(func):
+        def wrapper(*args, **kwargs):
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=category)
+                return func(*args, **kwargs)
+
+        return wrapper
+
+    return outwrapper
 
 
 def evaluate(y_true, y_score):
