@@ -236,7 +236,7 @@ class CoarseSleuth:
 
         self.D.eval()
         self.G.eval()
-        fake_data = [], []
+        fake_data = []
         
         with torch.no_grad():
             for data in self.loader:
@@ -245,7 +245,7 @@ class CoarseSleuth:
                 fake_data.append(fake.detach())
   
         fake_data = torch.cat(fake_data, dim=0)
-        delta = real_data - fake_data
+        delta = real_data.to(self.device) - fake_data
         self.P = Predictor(tgt.n_vars).to(self.device)
         self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
 
