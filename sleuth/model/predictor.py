@@ -6,22 +6,21 @@ from .generator import LinearBlock, ResBlock
 
 
 class Predictor(nn.Module):
-    def __init__(self, in_dim, n_Res=2, hidden_dim=[16, 1]):
+    def __init__(self, in_dim, n_Res=2, hidden_dim=[512, 256]):
         super().__init__()
-
+        
         pred_layers = []
         layers = [in_dim] + hidden_dim
         dim_1 = layers[0]
-        pred_layers.append(nn.Sequential(*[ResBlock[dim_1, dim_1] for _ in range(n_Res)]))
         for dim_2 in layers[1:]:
             pred_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
+        pred_layers.append(nn.Sequential(*[ResBlock(dim_2) for _ in range(n_Res)]))
         
         # output layer
+        pred_layers.append(LinearBlock(dim_2, 1))
         pred_layers.append(nn.Sigmoid())
         self.pred = nn.Sequential(*pred_layers)
-
-        self.kernel_size = nn.Parameter(torch.tensor(1, dtype=torch.float32))
 
         # Additional initialization
         self._init_weights()

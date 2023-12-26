@@ -9,7 +9,7 @@ class LinearBlock(nn.Module):
         super().__init__()
         self.linear = nn.Sequential(
             nn.Linear(in_dim, out_dim),
-            nn.BatchNorm1d(out_dim) if norm else nn.Identity(),
+            nn.InstanceNorm1d(out_dim) if norm else nn.Identity(),
             nn.LeakyReLU(0.2, inplace=True) if act else nn.Identity(),
             nn.Dropout(0.1) if dropout else nn.Identity(),
         )
@@ -53,14 +53,12 @@ class SCNet(nn.Module):
         for dim_2 in layers[1:]:
             decoder_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
+        decoder_layers.append(nn.Tanh())
         self.Decoder = nn.Sequential(*decoder_layers)
-
-        self.in_dim = in_dim
-        self.hidden_dim = hidden_dim
 
         # Additional initialization
         self._init_weights()
-    
+
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):

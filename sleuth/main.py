@@ -230,33 +230,30 @@ class CoarseSleuth:
         self._check(tgt)
 
         tqdm.write('Begin to detect anomalies on the target dataset...')
-        test_data = torch.Tensor(tgt.X)
-        self.loader = DataLoader(test_data, batch_size=self.bs, shuffle=False,
+        real_data = torch.Tensor(tgt.X)
+        self.loader = DataLoader(real_data, batch_size=self.bs*5, shuffle=False,
                                  num_workers=4, pin_memory=True, drop_last=False)
 
         self.D.eval()
         self.G.eval()
-        real_d, fake_d = [], []
+        fake_data = [], []
         
         with torch.no_grad():
             for data in self.loader:
                 data = data.to(self.device)
-                fake_data = self.G(data)
-
-                real_d.append(self.D(data).detach())
-                fake_d.append(self.D(fake_data).detach())
-
-        real_d = torch.cat(real_d, dim=0)
-        fake_d = torch.cat(fake_d, dim=0)
-        self.P = Predictor(self.D.hidden_dim[-1]).to(self.device)
-        self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.n_epochs)
+                fake, _ = self.G.forward(data)
+                fake_data.append(fake.detach())
+  
+        fake_data = torch.cat(fake_data, dim=0)
+        self.P = Predictor(tgt.n_vars).to(self.device)
+        self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
 
         self.P.train()
         with tqdm(total=self.predict_epochs) as t:
             for _ in range(self.predict_epochs):
                 t.set_description(f'Predict Epochs')
 
-                _, loss = self.P(real_d, fake_d)
+                _, loss = self.P.forward(real_data, fake_data)
                 self.opt_P.zero_grad()
                 loss.backward()
                 self.opt_P.step()
@@ -265,7 +262,7 @@ class CoarseSleuth:
                 t.update(1)
         
         self.P.eval()
-        p, _ = self.P(real_d, fake_d)
+        p, _ = self.forward(real_data, fake_data)
         tqdm.write('Anomalies have been detected.')
         return p.cpu().detach().numpy()
 

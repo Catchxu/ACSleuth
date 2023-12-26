@@ -13,7 +13,7 @@ class LinearBlock(nn.Module):
             SNorm(nn.Linear(in_dim, out_dim))
             if norm else nn.Linear(in_dim, out_dim),
             nn.LeakyReLU(0.2, inplace=True) if act else nn.Identity(),
-            nn.Dropout(0.1) if dropout else nn.Identity(),
+            nn.Dropout(0.3) if dropout else nn.Identity(),
         )
 
     def forward(self, x):
