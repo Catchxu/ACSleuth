@@ -34,29 +34,31 @@ class CoarseSleuth:
         if random_state is not None:
             seed_everything(random_state)
     
-    def _create_opt_sch(self, model, lr, betas=(0.5, 0.999), T_max=None):
-        optimizer = optim.Adam(model.parameters(), lr=lr, betas=betas)
+    def _create_opt_sch(self, model, lr, T_max=None):
+        optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.5, 0.999))
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=T_max) if T_max else None
         return optimizer, scheduler
 
-    def _prepare(self, prepare_epochs):
-        with tqdm(total=prepare_epochs) as t:
-            for _ in range(prepare_epochs):
-                t.set_description(f'Prepare Epochs')
+    def _train(self, epochs, description, prepare):
+        with tqdm(total=epochs) as t:
+            for _ in range(epochs):
+                t.set_description(description)
 
-                self._train(prepare=True)
+                for data in self.loader:
+                    data = data.to(self.device)
 
+                    for _ in range(self.n_critic):
+                        self._update_D(data, prepare)
+
+                    self._update_G(data, prepare)
+        
                 t.set_postfix(G_Loss = self.G_loss.item(),
                               D_Loss = self.D_loss.item())
                 t.update(1)
 
-    def _train(self, prepare):
-        for data in self.loader:
-            data = data.to(self.device)
-            for _ in range(self.n_critic):
-                self._update_D(data, prepare)
-
-            self._update_G(data, prepare)
+                if not prepare:
+                    self.sch_D.step()
+                    self.sch_G.step()
 
     def _update_D(self, data, prepare):
         fake_data, _ = self.G.prepare(data) if prepare else self.G(data)
@@ -103,27 +105,15 @@ class CoarseSleuth:
         self.D = Discriminator(ref.n_vars).to(self.device)
         self.G = GeneratorAD(ref.n_vars).to(self.device)
 
-        self.opt_D, self.sch_D = self._create_opt_sch(self.D, self.lr, T_max=self.n_epochs)
-        self.opt_G, self.sch_G = self._create_opt_sch(self.G, self.lr, T_max=self.n_epochs)
+        self.opt_D, self.sch_D = self._create_opt_sch(self.D, self.lr, self.train_epochs)
+        self.opt_G, self.sch_G = self._create_opt_sch(self.G, self.lr, self.train_epochs)
         self.L1 = nn.L1Loss().to(self.device)
 
         self.D.train()
         self.G.train()
 
-        self._prepare(self.prepare_epochs)
-
-        with tqdm(total=self.train_epochs) as t:
-            for _ in range(self.train_epochs):
-                t.set_description(f'Train Epochs')
-
-                self._train(prepare=False)
-
-                # Update learning rate for G and D
-                self.sch_D.step()
-                self.sch_G.step()
-                t.set_postfix(G_Loss = self.G_loss.item(),
-                              D_Loss = self.D_loss.item())
-                t.update(1)
+        self._train(self.prepare_epochs, 'Prepare Epochs', True)
+        self._train(self.train_epochs, 'Train Epochs', False)
         
         tqdm.write('Training has been finished.')
     
