@@ -246,6 +246,9 @@ class CoarseSleuth:
   
         fake_data = torch.cat(fake_data, dim=0)
         delta = real_data.to(self.device) - fake_data
+        delta = torch.mean(delta, dim=1)
+        return delta.cpu().detach().numpy()
+
         self.P = Predictor(tgt.n_vars).to(self.device)
         self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
 

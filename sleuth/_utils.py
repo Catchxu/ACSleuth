@@ -29,6 +29,7 @@ def clear_warnings(category=FutureWarning):
     return outwrapper
 
 
+@clear_warnings()
 def evaluate(y_true, y_score):
     """
     Calculate evaluation metrics
