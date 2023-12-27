@@ -51,9 +51,14 @@ class SCNet(nn.Module):
         dim_1 = layers[0]
         decoder_layers.append(nn.Sequential(*[ResBlock(dim_1) for _ in range(n_Res)]))
         for dim_2 in layers[1:]:
-            decoder_layers.append(LinearBlock(dim_1, dim_2))
+            if dim_2 != layers[-1]:
+                decoder_layers.append(LinearBlock(dim_1, dim_2))
+            else:
+                # the last layer don't have norm, act & dropout
+                decoder_layers.append(LinearBlock(dim_1, dim_2, False, False, False))
             dim_1 = dim_2
-        decoder_layers.append(nn.Tanh())
+
+        decoder_layers.append(nn.ReLU())
         self.Decoder = nn.Sequential(*decoder_layers)
 
         # Additional initialization
