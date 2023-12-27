@@ -14,7 +14,7 @@ from .model import GeneratorAD, Discriminator, Predictor
 class CoarseSleuth:
     def __init__(self,
                  prepare_epochs: int = 20,
-                 train_epochs: int = 100,
+                 train_epochs: int = 50,
                  predict_epochs: int = 20,
                  batch_size: int = 256,
                  learning_rate: float = 1e-4,
@@ -246,9 +246,6 @@ class CoarseSleuth:
   
         fake_data = torch.cat(fake_data, dim=0)
         delta = real_data.to(self.device) - fake_data
-        delta = torch.mean(delta, dim=1)
-        return delta.cpu().detach().numpy()
-
         self.P = Predictor(tgt.n_vars).to(self.device)
         self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
 
@@ -269,6 +266,61 @@ class CoarseSleuth:
         p = self.P.pred(delta)
         tqdm.write('Anomalies have been detected.')
         return p.cpu().detach().numpy()
+    
+    def G_score(self, tgt: ad.AnnData):
+        """
+        Detect anomaly cells only with reconstruction errors for G.
+        """
+        self._check(tgt)
+
+        real_data = torch.Tensor(tgt.X)
+        self.loader = DataLoader(real_data, batch_size=self.bs*5, shuffle=False,
+                                 num_workers=4, pin_memory=True, drop_last=False)
+
+        self.D.eval()
+        self.G.eval()
+        fake_data = []
+        
+        with torch.no_grad():
+            for data in self.loader:
+                data = data.to(self.device)
+                fake, _ = self.G.forward(data)
+                fake_data.append(fake.detach())
+  
+        fake_data = torch.cat(fake_data, dim=0)
+        delta = real_data.to(self.device) - fake_data
+        delta = torch.mean(delta, dim=1)
+        return delta.cpu().detach().numpy()
+    
+    def D_score(self, tgt: ad.AnnData):
+        """
+        Detect anomaly cells only with critic embeddings for D.
+        """
+        self._check(tgt)
+
+        real_data = torch.Tensor(tgt.X)
+        self.loader = DataLoader(real_data, batch_size=self.bs*5, shuffle=False,
+                                 num_workers=4, pin_memory=True, drop_last=False)
+
+        self.D.eval()
+        self.G.eval()
+        real_d, fake_d = [], []
+        
+        with torch.no_grad():
+            for data in self.loader:
+                data = data.to(self.device)
+                fake, _ = self.G.forward(data)
+
+                r_d = self.D.forward(data)
+                real_d.append(r_d.detach())
+                f_d = self.D.forward(fake)
+                fake_d.append(f_d.detach())                
+  
+        real_d = torch.cat(real_d, dim=0)
+        fake_d = torch.cat(fake_d, dim=0)
+        delta = real_d - fake_d
+        delta = torch.mean(delta, dim=1)
+        return delta.cpu().detach().numpy()
 
 
 
