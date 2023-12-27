@@ -269,7 +269,7 @@ class CoarseSleuth:
     
     def G_score(self, tgt: ad.AnnData):
         """
-        Detect anomaly cells only with reconstruction errors for G.
+        Detect anomaly cells only with reconstruction errors from G.
         """
         self._check(tgt)
 
@@ -294,7 +294,7 @@ class CoarseSleuth:
     
     def D_score(self, tgt: ad.AnnData):
         """
-        Detect anomaly cells only with critic embeddings for D.
+        Detect anomaly cells only with critic embeddings from D.
         """
         self._check(tgt)
 
