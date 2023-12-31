@@ -34,7 +34,7 @@ class ResBlock(nn.Module):
     
 
 class Discriminator(nn.Module):
-    def __init__(self, in_dim, hidden_dim=[512, 256, 64], n_Res=2):
+    def __init__(self, in_dim, hidden_dim=[512, 64], n_Res=1):
         """
         Initialize the Discriminator.
 

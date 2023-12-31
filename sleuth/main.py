@@ -13,12 +13,12 @@ from .model import GeneratorAD, Discriminator, Predictor
 
 class CoarseSleuth:
     def __init__(self,
-                 prepare_epochs: int = 20,
-                 train_epochs: int = 50,
+                 prepare_epochs: int = 50,
+                 train_epochs: int = 60,
                  predict_epochs: int = 20,
                  batch_size: int = 256,
-                 learning_rate: float = 1e-4,
-                 n_critic: int = 1,
+                 learning_rate: float = 3e-4,
+                 n_critic: int = 5,
                  GPU: bool = True,
                  weight: Optional[Dict[str, float]] = None,
                  random_state: Optional[int] = None):
@@ -213,7 +213,7 @@ class CoarseSleuth:
         
         tqdm.write('Training has been finished.')
     
-    def predict(self, tgt: ad.AnnData):
+    def predict(self, tgt: ad.AnnData, anomaly_ratio: float):
         """
         Detect anomalies in the target dataset using the trained CoarseSleuth model.
 
@@ -246,7 +246,7 @@ class CoarseSleuth:
   
         fake_data = torch.cat(fake_data, dim=0)
         delta = real_data.to(self.device) - fake_data
-        self.P = Predictor(tgt.n_vars).to(self.device)
+        self.P = Predictor(tgt.n_vars, anomaly_ratio).to(self.device)
         self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
 
         self.P.train()
@@ -261,11 +261,11 @@ class CoarseSleuth:
                 self.sch_P.step()
                 t.set_postfix(P_Loss = loss.item())
                 t.update(1)
-        
+
         self.P.eval()
         p = self.P.pred(delta)
         tqdm.write('Anomalies have been detected.')
-        return p.cpu().detach().numpy()
+        return p.cpu().detach().numpy().reshape(-1)
     
     def G_score(self, tgt: ad.AnnData):
         """
@@ -288,8 +288,7 @@ class CoarseSleuth:
                 fake_data.append(fake.detach())
   
         fake_data = torch.cat(fake_data, dim=0)
-        delta = real_data.to(self.device) - fake_data
-        delta = torch.mean(delta, dim=1)
+        delta = torch.norm(real_data.to(self.device) - fake_data, dim=1, p=2).reshape(-1)
         return delta.cpu().detach().numpy()
     
     def D_score(self, tgt: ad.AnnData):
@@ -318,8 +317,7 @@ class CoarseSleuth:
   
         real_d = torch.cat(real_d, dim=0)
         fake_d = torch.cat(fake_d, dim=0)
-        delta = real_d - fake_d
-        delta = torch.mean(delta, dim=1)
+        delta = torch.norm(real_d - fake_d, dim=1, p=2).reshape(-1)
         return delta.cpu().detach().numpy()
 
 

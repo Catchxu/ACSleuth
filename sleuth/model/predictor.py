@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .generator import LinearBlock, ResBlock
+from .generator import LinearBlock
 
 
 class Predictor(nn.Module):
-    def __init__(self, in_dim, n_Res=2, hidden_dim=[512, 256]):
+    def __init__(self, in_dim, anomaly_ratio, hidden_dim=[512, 256]):
         super().__init__()
         
         pred_layers = []
@@ -16,8 +16,7 @@ class Predictor(nn.Module):
         for dim_2 in layers[1:]:
             pred_layers.append(LinearBlock(dim_1, dim_2))
             dim_1 = dim_2
-        pred_layers.append(nn.Sequential(*[ResBlock(dim_2) for _ in range(n_Res)]))
-        
+
         # output layer
         pred_layers.append(nn.Linear(dim_2, 1))
         pred_layers.append(nn.Sigmoid())
@@ -25,6 +24,8 @@ class Predictor(nn.Module):
 
         # Additional initialization
         self._init_weights()
+        
+        self.ratio = anomaly_ratio
     
     def _init_weights(self):
         for m in self.modules():
@@ -32,8 +33,9 @@ class Predictor(nn.Module):
                 nn.init.xavier_normal_(m.weight)
     
     def _est_m_n(self, p):
+        num = p.shape[0]
         n = torch.sum(p)
-        m = p.shape[0] - n
+        m = num - n
         return m, n
 
     def _gamma(self, p):
@@ -46,13 +48,13 @@ class Predictor(nn.Module):
         term3 = m * n * torch.mm(p, (p - 1).t())
         term4 = n * (n - 1) * torch.mm(p - 1, (p - 1).t())
 
-        result = cof / (term1 - term2 - term3 + term4 + 1e-5)
+        result = cof / (term1 - term2 - term3 + term4)
         return result
 
     def _loss(self, delta, p):
         gamma = self._gamma(p)
         k = torch.mm(delta, delta.t())
-        return torch.mean(k * gamma)
+        return - torch.sum(k * gamma)
 
     def forward(self, delta):
         p = self.pred(delta)
