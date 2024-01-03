@@ -1,4 +1,5 @@
 import torch.nn as nn
+from typing import Optional
 
 from ._block import MemoryBlock, StyleBlock
 
@@ -133,3 +134,41 @@ class GeneratorAD(SCNet):
         z = self.Encoder(x)
         x = self.Decoder(z)
         return x, z
+
+
+class GeneratorDA(SCNet):
+    def __init__(self, n_batch, in_dim, hidden_dim=[512, 256], n_Res=2):
+        """
+        Initialize the GeneratorDA.
+
+        Parameters
+        ----------
+        n_batch : int
+            Batch size.
+        in_dim : int
+            Input dimension.
+        hidden_dim : list of int, optional
+            List of hidden layer dimensions.
+        n_Res : int, optional
+            Number of residual blocks.
+        """
+        super().__init__(in_dim, hidden_dim, n_Res)
+        self.Style = StyleBlock(n_batch, hidden_dim[-1])
+
+    def forward(self, x):
+        """
+        Forward pass of the generator for training.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input data.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output data.
+        """
+        z = self.Encoder(x)
+        x = self.Decoder(self.Style(z))
+        return x

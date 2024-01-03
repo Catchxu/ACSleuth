@@ -106,17 +106,45 @@ class MemoryBlock(nn.Module):
 
 
 class StyleBlock(nn.Module):
-    def __init__(self, data_n: int, z_dim: int):
+    def __init__(self, n_batch: int, z_dim: int):
+        """
+        Initialize the StyleBlock.
+
+        Parameters
+        ----------
+        n_batch : int
+            Number of batch in target dataset.
+        z_dim : int
+            Dimension of the latent representation.
+        """
         super().__init__()
-        self.n = data_n
-        self.style = nn.Parameter(torch.Tensor(data_n, z_dim))
+        self.n = n_batch
+        self.style = nn.Parameter(torch.Tensor(n_batch, z_dim))
         self.reset_parameters()
 
     def reset_parameters(self):
+        """
+        Reset style parameters with uniform initialization.
+        """
         stdv = 1. / math.sqrt(self.style.size(1))
         self.style.data.uniform_(-stdv, stdv)
 
     def forward(self, z, batchid):
+        """
+        Forward pass of the style block.
+
+        Parameters
+        ----------
+        z : torch.Tensor
+            Latent representation.
+        batchid : torch.Tensor
+            Batch IDs.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output tensor after style transfering.
+        """
         if self.n == 1:
             return z - self.style
         else:
