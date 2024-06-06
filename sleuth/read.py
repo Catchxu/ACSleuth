@@ -58,29 +58,6 @@ def read_dataset(dir, names):
 def read(ref_dir: str, ref_name: Union[Sequence[str], str],
          tgt_dir: Optional[str] = None, tgt_name: Optional[Union[Sequence[str], str]] = None,
          preprocess: bool = True):
-    """
-    Read and preprocess datasets.
-
-    Parameters
-    ----------
-    ref_dir : str
-        Directory path for the reference dataset.
-    ref_name : Union[Sequence[str], str]
-        Name or list of names of the reference dataset.
-    tgt_dir : str, optional
-        Directory path for the target dataset. If not provided, uses the reference directory.
-    tgt_name : Union[Sequence[str], str], optional
-        Name or list of names of the target dataset. If not provided, uses the reference names.
-    preprocess : bool, optional
-        If True, preprocess the datasets.
-
-    Returns
-    -------
-    ref : anndata.AnnData
-        Reference dataset.
-    tgt : anndata.AnnData
-        Target dataset.
-    """
     if tgt_dir is None:
         tgt_dir = ref_dir
 
