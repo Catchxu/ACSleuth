@@ -4,11 +4,24 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.parameter import Parameter
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from sklearn.cluster import KMeans
 
 from .generator import GeneratorAD
 from .block import TFBlock
+
+
+class PairedDataset(Dataset):
+    def __init__(self, z, res_z):
+        self.z = z
+        self.res_z = res_z
+
+    def __len__(self):
+        return len(self.z)
+
+    def __getitem__(self, idx):
+        return self.z[idx], self.res_z[idx]
 
 
 class Cluster(nn.Module):
@@ -19,6 +32,7 @@ class Cluster(nn.Module):
                  KMeans_n_init: int = 20,
                  learning_rate: float = 1e-4,
                  n_epochs: int = 2000,
+                 batch_size: int = 64,
                  update_interval: int = 10,
                  weight_decay: float = 1e-4,
                  **kwargs
@@ -32,6 +46,7 @@ class Cluster(nn.Module):
         self.KMeans_n_init = KMeans_n_init
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
+        self.batch_size = batch_size
         self.update_interval = update_interval
         self.weight_decay = weight_decay
 
@@ -92,21 +107,24 @@ class Cluster(nn.Module):
 
         z = self.fusion(z, res_z)
         self.mu_init(z.cpu().detach().numpy())
+        dataset = PairedDataset(z, res_z)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         self.train()
         with tqdm(total=self.n_epochs) as t:
             for epoch in range(self.n_epochs):
                 t.set_description(f'Train Epochs')
 
-                p, q = self.forward(z, res_z)
+                for batch_z, batch_res_z in dataloader:
+                    p, q = self.forward(batch_z, batch_res_z)
 
-                if epoch % self.update_interval == 0:
-                    p = self.target_distribution(q).data
+                    if epoch % self.update_interval == 0:
+                        p = self.target_distribution(q).data
 
-                optimizer.zero_grad()
-                loss = self.loss_function(p, q)
-                loss.backward(retain_graph=True)
-                optimizer.step()
+                    optimizer.zero_grad()
+                    loss = self.loss_function(p, q)
+                    loss.backward(retain_graph=True)
+                    optimizer.step()
 
                 t.set_postfix(Loss = loss.item())
                 t.update(1)
