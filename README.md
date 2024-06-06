@@ -1,1 +1,1 @@
-# ACSleuth: Domain Adaptive and Fine-grained Anomalous Cell Detection for Single-cell Multiomics
+# Domain Adaptive and Fine-grained Anomaly Detection for Single-cell Sequencing Data and Beyond
