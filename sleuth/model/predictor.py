@@ -1,12 +1,11 @@
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from .generator import LinearBlock
+from .block import LinearBlock
 
 
-class Predictor(nn.Module):
+class Scorer(nn.Module):
     def __init__(self, in_dim, anomaly_ratio, hidden_dim=[512, 256]):
         super().__init__()
         
