@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.utils.spectral_norm as SNorm
@@ -174,3 +175,91 @@ class StyleBlock(nn.Module):
         else:
             s = torch.mm(batchid, self.style)
             return z - s
+
+
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model, nheads, dropout=0.1):
+        super().__init__()
+        assert d_model % nheads == 0
+
+        self.d_k = d_model // nheads
+        self.h = nheads
+        self.dropout = nn.Dropout(dropout)
+
+        # Produce N identical layers
+        self.linears = nn.ModuleList([
+            copy.deepcopy(nn.Linear(d_model, d_model)) for _ in range(4)
+        ])
+
+    def attention(self, query, key, value):
+        d_k = query.size(-1)
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+        attn = F.softmax(scores, dim = -1)
+        attn = self.dropout(attn)
+        return torch.matmul(attn, value), attn
+
+    def forward(self, q, k, v):
+        N = q.shape[0]
+
+        q, k, v = [l(x) for l, x in zip(self.linears[:-1], (q, k, v))] # (batch_size, d_model)
+        q, k, v = [x.view(N, -1, self.h, self.d_k).transpose(1, 2) for x in (q, k, v)] # (batch_size, h, 1, d_k)
+
+        x, self.attn = self.attention(q, k, v)
+        x = x.transpose(1, 2).contiguous().view(N, self.h*self.d_k)
+
+        return self.linears[-1](x).squeeze(1)
+
+
+
+
+class TransformerLayer(nn.Module):
+    def __init__(self, d_model, nheads, hidden_dim=1024, dropout=0.3) -> None:
+        super().__init__()
+
+        self.attention = MultiHeadAttention(d_model, nheads)
+
+        self.norm = nn.ModuleList([
+            copy.deepcopy(nn.LayerNorm(d_model)) for _ in range(2)
+        ])
+
+        self.fc = nn.Sequential(
+            nn.Linear(d_model, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, d_model)
+        )
+
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, q, k, v):
+        attn = self.attention(q, k, v)
+
+        x = self.dropout(self.norm[0](attn + q))
+        f = self.fc(x)
+        x = self.dropout(self.norm[1](x + f))
+        return x
+
+
+
+
+class TFBlock(nn.Module):
+    def __init__(self, z_dim, num_layers=3, nheads=4, 
+                 hidden_dim=1024, dropout=0.1):
+        super().__init__()
+
+        self.layers = nn.ModuleList([
+            TransformerLayer(z_dim, nheads, hidden_dim, dropout) 
+            for _ in range(num_layers)
+        ])
+
+        self.dropout = nn.Dropout(dropout)
+    
+    def forward(self, z, res_z):
+        z = self.dropout(z)
+        res_z = self.dropout(res_z)
+
+        for layer in self.layers:
+            z = layer(z, res_z, res_z)
+ 
+        return z

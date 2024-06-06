@@ -11,6 +11,7 @@ class GeneratorAD(Extractor):
                  temperature=1):
         super().__init__(in_dim, hidden_dim, num_blocks)
         self.Memory = MemoryBlock(mem_dim, hidden_dim[-1], threshold, temperature)
+        self.z_dim = hidden_dim[-1]
 
     def forward(self, x):
         z = self.Encoder(x)
