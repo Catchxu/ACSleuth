@@ -65,3 +65,25 @@ class AdaptConfigs:
             'hidden_dim': [512, 256],
             'num_blocks': 2,   
         }
+
+
+class SubtypeConfigs:
+    def __init__(self, gene_dim):
+        self.gene_dim = gene_dim
+
+        self.n_epochs = 100
+        self.batch_size = 64
+        self.learning_rate = 1e-4
+        self.weight_decay = 1e-4
+        self.device = select_device('cuda:0')
+        self.random_state = 2024
+
+        # model
+        self.Cluster = {
+            'alpha': 1,
+            'KMeans_n_init': 20,
+            'num_layers': 3,
+            'nheads': 4,
+            'hidden_dim': 512,
+            'dropout': 0.1
+        }
