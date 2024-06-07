@@ -44,7 +44,7 @@ class AdaptModel:
     
     def adapt(self, ref: ad.AnnData, tgt: ad.AnnData, batch_key: str, generator: GeneratorAD):
         self._check(ref, tgt, batch_key)
-
+        tqdm.write('Begin to correct data domain shifts...')
         ref_data, tgt_data = self._map(ref, tgt, generator)
 
         dataset = PairDataset(ref_data, tgt_data)
@@ -54,7 +54,25 @@ class AdaptModel:
         self.D.train()
         self.G.train()
         self._train(self.n_epochs)
-    
+
+        # Generate data without domain shifts
+        dataset = torch.Tensor(tgt.X)
+        self.loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False,
+                                 num_workers=4, pin_memory=True, drop_last=False)
+
+        self.G.eval()
+        corrected = []
+        with torch.no_grad():
+            for data in self.loader:
+                data = data.to(self.device)
+                fake_ref = self.G(data)
+                corrected.append(fake_ref.cpu().detach())
+
+        corrected = torch.cat(corrected, dim=0).numpy()
+        tgt.X = corrected
+        tqdm.write('Data domain shifts have been corrected.')
+        return tgt
+
     def _init_model(self, configs: AdaptConfigs, num_batches: int):
         self.D = Discriminator(**configs.Discriminator).to(self.device)
         self.G = GeneratorDA(num_batches, **configs.Generator).to(self.device)
@@ -108,25 +126,25 @@ class AdaptModel:
                 self.sch_D.step()
                 self.sch_G.step()
     
-    def _UpdateD(self, data):
-        fake_data, _ = self.G(data)
+    def _UpdateD(self, ref, tgt):
+        fake_ref = self.G(tgt)
 
-        d1 = torch.mean(self.D(data))
-        d2 = torch.mean(self.D(fake_data.detach()))
-        gp = self.D.gradient_penalty(data, fake_data.detach())
+        d1 = torch.mean(self.D(ref))
+        d2 = torch.mean(self.D(fake_ref.detach()))
+        gp = self.D.gradient_penalty(ref, fake_ref.detach())
         self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
 
         self.opt_D.zero_grad()
         self.D_loss.backward()
         self.opt_D.step()
     
-    def _UpdateG(self, data):
-        fake_data, z = self.G(data)
+    def _UpdateG(self, ref, tgt):
+        fake_ref = self.G(tgt)
 
         # discriminator provides feedback
-        d = self.D(fake_data)
+        d = self.D(fake_ref)
 
-        L_rec = self.Loss(data, fake_data)
+        L_rec = self.Loss(ref, fake_ref)
         L_adv = - torch.mean(d)
         self.G_loss = self.loss_weight['w_rec']*L_rec+self.loss_weight['w_adv']*L_adv
         self.opt_G.zero_grad()
