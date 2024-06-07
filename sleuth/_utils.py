@@ -4,6 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 from sklearn import metrics
+from typing import Union
 
 
 def seed_everything(seed):
@@ -15,9 +16,6 @@ def seed_everything(seed):
 
 
 def clear_warnings(category=FutureWarning):
-    """
-    Decorator to clear warnings during function execution.
-    """
     def outwrapper(func):
         def wrapper(*args, **kwargs):
             with warnings.catch_warnings():
@@ -27,6 +25,22 @@ def clear_warnings(category=FutureWarning):
         return wrapper
 
     return outwrapper
+
+
+def select_device(GPU: Union[bool, str] = True,):
+    if GPU:
+        if torch.cuda.is_available():
+            if isinstance(GPU, str):
+                device = torch.device(GPU)
+            else:
+                device = torch.device('cuda:0')
+        else:
+            print("GPU isn't available, and use CPU to train Docs.")
+            device = torch.device("cpu")
+    else:
+        device = torch.device("cpu")
+
+    return device
 
 
 @clear_warnings()
