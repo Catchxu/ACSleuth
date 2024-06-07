@@ -2,15 +2,15 @@
 
 <br/>
 <div align=center>
-<img src='/docs/ACSleuth.png' width='80%'>
+<img src='/docs/ACSleuth.png' width='60%'>
 </div>
 <br/>
 
 <b>Domain Adaptive and Fine-grained Anomaly Detection for Single-cell Sequencing Data and Beyond</b>
 
-<sup>*</sup>: equal contribution.
+<sup>\*</sup>: equal contribution.
 
-<i>Kaichen Xu<sup>*</sup>, Yueyang Ding<sup>*</sup>, Suyang Hou, Weiqiang Zhan, Nisang Chen, Jun Wang, Xiaobo Sun</i>
+<i>Kaichen Xu<sup>\*</sup>, Yueyang Ding<sup>\*</sup>, Suyang Hou, Weiqiang Zhan, Nisang Chen, Jun Wang, Xiaobo Sun</i>
 
 [ArXiv](https://arxiv.org/abs/2404.17454)
 
