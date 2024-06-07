@@ -1,6 +1,5 @@
 import anndata as ad
 from tqdm import tqdm
-from typing import Optional, Dict
 
 import torch
 import torch.nn as nn
@@ -9,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from ._utils import seed_everything
-from .model import Discriminator, GeneratorDA
+from .model import Discriminator, GeneratorDA, GeneratorAD
 from .configs import AdaptConfigs
 
 
@@ -43,6 +42,19 @@ class AdaptModel:
 
         seed_everything(configs.random_state)
     
+    def adapt(self, ref: ad.AnnData, tgt: ad.AnnData, batch_key: str, generator: GeneratorAD):
+        self._check(ref, tgt, batch_key)
+
+        ref_data, tgt_data = self._map(ref, tgt, generator)
+
+        dataset = PairDataset(ref_data, tgt_data)
+        self.loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True,
+                                 num_workers=4, pin_memory=True, drop_last=False)
+
+        self.D.train()
+        self.G.train()
+        self._train(self.n_epochs)
+    
     def _init_model(self, configs: AdaptConfigs, num_batches: int):
         self.D = Discriminator(**configs.Discriminator).to(self.device)
         self.G = GeneratorDA(num_batches, **configs.Generator).to(self.device)
@@ -53,4 +65,70 @@ class AdaptModel:
         self.sch_D = CosineAnnealingLR(self.opt_D, self.n_epochs)
         self.sch_G = CosineAnnealingLR(self.opt_G, self.n_epochs)
 
-        self.Loss = nn.L1Loss().to(self.device)        
+        self.Loss = nn.L1Loss().to(self.device)
+
+    def _check(self, ref, tgt, batch_key):
+        if (tgt.var_names != ref.var_names).any():
+            raise RuntimeError('Target and reference data have different genes!')
+
+        if batch_key not in tgt.obs.columns:
+            raise RuntimeError(f'{batch_key} is not in tgt.obs!')
+
+    @torch.no_grad()
+    def _map(self, ref: ad.AnnData, tgt: ad.AnnData, generator: GeneratorAD):
+        ref_data = torch.Tensor(ref.X).to(self.device)
+        tgt_data = torch.Tensor(tgt.X).to(self.device)
+
+        generator.eval()
+        ref_e = generator(ref_data)
+        tgt_e = generator(tgt_data)
+
+        dot_product_matrix = torch.mm(tgt_e, ref_e.t())
+        max_indices = torch.argmax(dot_product_matrix, dim=1)
+        mapped_ref_e = ref_e[max_indices]
+        return mapped_ref_e.detach().cpu(), tgt_data.cpu()
+    
+    def _train(self, epochs):
+        with tqdm(total=epochs) as t:
+            for _ in range(epochs):
+                t.set_description('Adaptation Epochs')
+
+                for data in self.loader:
+                    ref = data['ref'].to(self.device)
+                    tgt = data['tgt'].to(self.device)
+
+                    for _ in range(self.n_critic):
+                        self._UpdateD(ref, tgt)
+
+                    self._UpdateG(ref, tgt)
+        
+                t.set_postfix(G_Loss = self.G_loss.item(),
+                              D_Loss = self.D_loss.item())
+                t.update(1)
+                self.sch_D.step()
+                self.sch_G.step()
+    
+    def _UpdateD(self, data):
+        fake_data, _ = self.G(data)
+
+        d1 = torch.mean(self.D(data))
+        d2 = torch.mean(self.D(fake_data.detach()))
+        gp = self.D.gradient_penalty(data, fake_data.detach())
+        self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
+
+        self.opt_D.zero_grad()
+        self.D_loss.backward()
+        self.opt_D.step()
+    
+    def _UpdateG(self, data):
+        fake_data, z = self.G(data)
+
+        # discriminator provides feedback
+        d = self.D(fake_data)
+
+        L_rec = self.Loss(data, fake_data)
+        L_adv = - torch.mean(d)
+        self.G_loss = self.loss_weight['w_rec']*L_rec+self.loss_weight['w_adv']*L_adv
+        self.opt_G.zero_grad()
+        self.G_loss.backward()
+        self.opt_G.step()

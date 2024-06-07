@@ -41,8 +41,8 @@ class AnomalyModel:
 
         self.D.train()
         self.G.train()
-        self._train(self.prepare_epochs, 'Prepare Epochs', False)
-        self._train(self.train_epochs, 'Train Epochs', True)
+        self._train(self.prepare_epochs, 'Preparation Epochs', False)
+        self._train(self.train_epochs, 'Training Epochs', True)
         
         tqdm.write('Training has been finished.')
 
@@ -70,7 +70,7 @@ class AnomalyModel:
         self.S.train()
         with tqdm(total=self.score_epochs) as t:
             for _ in range(self.score_epochs):
-                t.set_description(f'Predict Epochs')
+                t.set_description(f'Prediction Epochs')
 
                 _, loss = self.S(delta)
                 self.opt_S.zero_grad()
@@ -143,7 +143,7 @@ class AnomalyModel:
             fake_data, z = self.G.prepare(data)
 
         # discriminator provides feedback
-        d = self.D.forward(fake_data)
+        d = self.D(fake_data)
 
         L_rec = self.Loss(data, fake_data)
         L_adv = - torch.mean(d)
