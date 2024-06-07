@@ -29,7 +29,7 @@ class PairDataset(Dataset):
 
 
 class AdaptModel:
-    def __init__(self, configs: AdaptConfigs):
+    def __init__(self, configs: AdaptConfigs, num_batches: int):
         # Training
         self.n_epochs = configs.n_epochs
         self.batch_size = configs.batch_size
@@ -39,13 +39,13 @@ class AdaptModel:
         self.device = configs.device
         
         # Initial model
-        self._init_model(configs)
+        self._init_model(configs, num_batches)
 
         seed_everything(configs.random_state)
     
-    def _init_model(self, configs):
+    def _init_model(self, configs: AdaptConfigs, num_batches: int):
         self.D = Discriminator(**configs.Discriminator).to(self.device)
-        self.G = GeneratorDA(**configs.Generator).to(self.device)
+        self.G = GeneratorDA(num_batches, **configs.Generator).to(self.device)
 
         self.opt_D = optim.Adam(self.D.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))
         self.opt_G = optim.Adam(self.G.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))     

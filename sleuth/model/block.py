@@ -99,15 +99,6 @@ class Extractor(nn.Module):
         decoder_layers.append(nn.ReLU())
         self.Decoder = nn.Sequential(*decoder_layers)
 
-        # Additional initialization
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight)
-
-
 
 
 
