@@ -1,7 +1,7 @@
 from ._utils import select_device
 
 
-class AnomalyConfigs(object):
+class AnomalyConfigs:
     def __init__(self, gene_dim):
         self.gene_dim = gene_dim
 
@@ -16,7 +16,6 @@ class AnomalyConfigs(object):
         self.n_critic = 2
         self.loss_weight = {'w_rec': 30, 'w_adv': 1, 'w_gp': 10}
         self.device = select_device('cuda:0')
-
         self.random_state = 2024
 
         # model
@@ -39,3 +38,17 @@ class AnomalyConfigs(object):
             'in_dim': self.gene_dim,
             'hidden_dim': [512, 256]
         }
+
+
+class AdaptConfigs:
+    def __init__(self, gene_dim):
+        self.gene_dim = gene_dim
+
+        # Training
+        self.n_epochs = 50
+        self.batch_size = 128
+        self.learning_rate = 1e-4
+        self.n_critic = 2
+        self.loss_weight = {'w_rec': 30, 'w_adv': 1, 'w_gp': 10}
+        self.device = select_device('cuda:0')
+        self.random_state = 2024

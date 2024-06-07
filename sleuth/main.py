@@ -11,19 +11,7 @@ from ._utils import seed_everything
 from .model import GeneratorAD, Discriminator, Predictor, GeneratorDA
 
 
-class PairDataset(Dataset):
-    def __init__(self, ref_data, tgt_data):
-        self.ref_data = ref_data
-        self.tgt_data = tgt_data
 
-    def __len__(self):
-        return len(self.ref_data)
-
-    def __getitem__(self, index):
-        ref_sample = self.ref_data[index]
-        tgt_sample = self.tgt_data[index]
-
-        return {'ref': ref_sample, 'tgt': tgt_sample}
 
 
 class FineSleuth:

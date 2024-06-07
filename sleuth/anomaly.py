@@ -1,12 +1,11 @@
 import anndata as ad
 from tqdm import tqdm
-from typing import Optional, Dict
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import DataLoader, Dataset
 
 from ._utils import seed_everything
 from .configs import AnomalyConfigs
