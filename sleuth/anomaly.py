@@ -5,32 +5,103 @@ from typing import Optional, Dict
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, Dataset
 
 from ._utils import seed_everything
+from .configs import AnomalyConfigs
 from .model import GeneratorAD, Discriminator, Scorer
 
 
 class AnomalyModel:
-    def __init__(self, configs):
-        self.prepare_epochs = prepare_epochs
-        self.train_epochs = train_epochs
-        self.predict_epochs = predict_epochs
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
-        self.n_critic = n_critic
-        self.device = torch.device("cuda:0" if GPU and torch.cuda.is_available() else "cpu")
-        self.weight = weight or 
-        
-        if random_state is not None:
-            seed_everything(random_state)
-    
-    def _create_opt_sch(self, model, lr, T_max=None):
-        optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.5, 0.999))
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=T_max) if T_max else None
-        return optimizer, scheduler
+    def __init__(self, configs: AnomalyConfigs, anomaly_ratio: float):
+        # Number of epochs
+        self.prepare_epochs = configs.prepare_epochs
+        self.train_epochs = configs.train_epochs
+        self.score_epochs = configs.score_epochs
 
-    def _train(self, epochs, description, prepare):
+        # Training
+        self.batch_size = configs.batch_size
+        self.learning_rate = configs.learning_rate
+        self.n_critic = configs.n_critic
+        self.loss_weight = configs.loss_weight
+        self.device = configs.device
+
+        # Initial model
+        self._init_model(configs, anomaly_ratio)
+        
+        seed_everything(configs.random_state)
+    
+    def detect(self, ref: ad.AnnData):
+        tqdm.write('Begin to train ACSleuth on the reference dataset...')
+
+        self.gene_names = ref.var_names
+        train_data = torch.Tensor(ref.X)
+        self.loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True,
+                                 num_workers=4, pin_memory=True, drop_last=True)
+
+        self.D.train()
+        self.G.train()
+        self._train(self.prepare_epochs, 'Prepare Epochs', False)
+        self._train(self.train_epochs, 'Train Epochs', True)
+        
+        tqdm.write('Training has been finished.')
+
+    def predict(self, tgt: ad.AnnData):
+        self._check(tgt)
+
+        tqdm.write('Begin to detect anomalies on the target dataset...')
+        real_data = torch.Tensor(tgt.X)
+        self.loader = DataLoader(real_data, batch_size=self.batch_size, shuffle=False,
+                                 num_workers=4, pin_memory=True, drop_last=False)
+
+        self.D.eval()
+        self.G.eval()
+        fake_data = []
+
+        with torch.no_grad():
+            for data in self.loader:
+                data = data.to(self.device)
+                fake, _ = self.G(data)
+                fake_data.append(fake.detach())
+  
+        fake_data = torch.cat(fake_data, dim=0)
+        delta = real_data.to(self.device) - fake_data
+
+        self.S.train()
+        with tqdm(total=self.score_epochs) as t:
+            for _ in range(self.score_epochs):
+                t.set_description(f'Predict Epochs')
+
+                _, loss = self.S(delta)
+                self.opt_S.zero_grad()
+                loss.backward()
+                self.opt_S.step()
+                self.sch_S.step()
+                t.set_postfix(S_Loss = loss.item())
+                t.update(1)
+
+        self.S.eval()
+        p = self.S.pred(delta)
+        tqdm.write('Anomalies have been detected.')
+        return p.cpu().detach().numpy().reshape(-1)
+
+    def _init_model(self, configs: AnomalyConfigs, anomaly_ratio: float):
+        self.D = Discriminator(**configs.Discriminator).to(self.device)
+        self.G = GeneratorAD(**configs.Generator).to(self.device)
+        self.S = Scorer(anomaly_ratio=anomaly_ratio, **configs.Scorer).to(self.device)
+
+        self.opt_D = optim.Adam(self.D.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))
+        self.opt_G = optim.Adam(self.G.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))
+        self.opt_S = optim.Adam(self.S.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))        
+
+        self.sch_D = CosineAnnealingLR(self.opt_D, self.train_epochs)
+        self.sch_G = CosineAnnealingLR(self.opt_G, self.train_epochs)
+        self.sch_S = CosineAnnealingLR(self.opt_S, self.score_epochs)
+
+        self.Loss = nn.L1Loss().to(self.device)
+
+    def _train(self, epochs, description, train: bool):
         with tqdm(total=epochs) as t:
             for _ in range(epochs):
                 t.set_description(description)
@@ -39,23 +110,26 @@ class AnomalyModel:
                     data = data.to(self.device)
 
                     for _ in range(self.n_critic):
-                        self._update_D(data, prepare)
+                        self._UpdateD(data, train)
 
-                    self._update_G(data, prepare)
+                    self._UpdateG(data, train)
         
                 t.set_postfix(G_Loss = self.G_loss.item(),
                               D_Loss = self.D_loss.item())
                 t.update(1)
 
-                if not prepare:
+                if train:
                     self.sch_D.step()
                     self.sch_G.step()
 
-    def _update_D(self, data, prepare):
-        fake_data, _ = self.G.prepare(data) if prepare else self.G.forward(data)
+    def _UpdateD(self, data, train):
+        if train:
+            fake_data, _ = self.G(data)
+        else:
+            fake_data, _ = self.G.prepare(data)
 
-        d1 = torch.mean(self.D.forward(data))
-        d2 = torch.mean(self.D.forward(fake_data.detach()))
+        d1 = torch.mean(self.D(data))
+        d2 = torch.mean(self.D(fake_data.detach()))
         gp = self.D.gradient_penalty(data, fake_data.detach())
         self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
 
@@ -63,15 +137,18 @@ class AnomalyModel:
         self.D_loss.backward()
         self.opt_D.step()
     
-    def _update_G(self, data, prepare):
-        fake_data, z = self.G.prepare(data) if prepare else self.G.forward(data)
+    def _UpdateG(self, data, train):
+        if train:
+            fake_data, z = self.G(data)
+        else:
+            fake_data, z = self.G.prepare(data)
 
         # discriminator provides feedback
         d = self.D.forward(fake_data)
 
-        L_rec = self.L1(data, fake_data)
-        L_adv = -torch.mean(d)
-        self.G_loss = self.weight['w_rec']*L_rec + self.weight['w_adv']*L_adv
+        L_rec = self.Loss(data, fake_data)
+        L_adv = - torch.mean(d)
+        self.G_loss = self.loss_weight['w_rec']*L_rec+self.loss_weight['w_adv']*L_adv
         self.opt_G.zero_grad()
         self.G_loss.backward()
         self.opt_G.step()
@@ -85,68 +162,7 @@ class AnomalyModel:
         if (self.G is None or self.D is None):
             raise RuntimeError('Please train the model first.')
 
-    def detect(self, ref: ad.AnnData):
-        tqdm.write('Begin to train ACsleuth on the reference dataset...')
 
-        self.genes = ref.var_names
-        train_data = torch.Tensor(ref.X)
-        self.loader = DataLoader(train_data, batch_size=self.bs, shuffle=True,
-                                 num_workers=4, pin_memory=True, drop_last=True)
-
-        self.D = Discriminator(ref.n_vars).to(self.device)
-        self.G = GeneratorAD(ref.n_vars).to(self.device)
-        self.opt_D, self.sch_D = self._create_opt_sch(self.D, self.lr, self.train_epochs)
-        self.opt_G, self.sch_G = self._create_opt_sch(self.G, self.lr, self.train_epochs)
-        self.L1 = nn.L1Loss().to(self.device)
-
-        self.D.train()
-        self.G.train()
-        self._train(self.prepare_epochs, 'Prepare Epochs', True)
-        self._train(self.train_epochs, 'Train Epochs', False)
-        
-        tqdm.write('Training has been finished.')
-    
-    def predict(self, tgt: ad.AnnData, anomaly_ratio: float):
-        self._check(tgt)
-
-        tqdm.write('Begin to detect anomalies on the target dataset...')
-        real_data = torch.Tensor(tgt.X)
-        self.loader = DataLoader(real_data, batch_size=self.bs*5, shuffle=False,
-                                 num_workers=4, pin_memory=True, drop_last=False)
-
-        self.D.eval()
-        self.G.eval()
-        fake_data = []
-        
-        with torch.no_grad():
-            for data in self.loader:
-                data = data.to(self.device)
-                fake, _ = self.G.forward(data)
-                fake_data.append(fake.detach())
-  
-        fake_data = torch.cat(fake_data, dim=0)
-        delta = real_data.to(self.device) - fake_data
-        self.P = Predictor(tgt.n_vars, anomaly_ratio).to(self.device)
-        self.opt_P, self.sch_P = self._create_opt_sch(self.P, self.lr, T_max=self.predict_epochs)
-
-        self.P.train()
-        with tqdm(total=self.predict_epochs) as t:
-            for _ in range(self.predict_epochs):
-                t.set_description(f'Predict Epochs')
-
-                _, loss = self.P.forward(delta)
-                self.opt_P.zero_grad()
-                loss.backward()
-                self.opt_P.step()
-                self.sch_P.step()
-                t.set_postfix(P_Loss = loss.item())
-                t.update(1)
-
-        self.P.eval()
-        p = self.P.pred(delta)
-        tqdm.write('Anomalies have been detected.')
-        return p.cpu().detach().numpy().reshape(-1)
-    
     def G_score(self, tgt: ad.AnnData):
         """
         Detect anomaly cells only with reconstruction errors from G.
@@ -154,7 +170,7 @@ class AnomalyModel:
         self._check(tgt)
 
         real_data = torch.Tensor(tgt.X)
-        self.loader = DataLoader(real_data, batch_size=self.bs*5, shuffle=False,
+        self.loader = DataLoader(real_data, batch_size=self.batch_size, shuffle=False,
                                  num_workers=4, pin_memory=True, drop_last=False)
 
         self.D.eval()
@@ -178,7 +194,7 @@ class AnomalyModel:
         self._check(tgt)
 
         real_data = torch.Tensor(tgt.X)
-        self.loader = DataLoader(real_data, batch_size=self.bs*5, shuffle=False,
+        self.loader = DataLoader(real_data, batch_size=self.batch_size, shuffle=False,
                                  num_workers=4, pin_memory=True, drop_last=False)
 
         self.D.eval()

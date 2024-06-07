@@ -1,3 +1,3 @@
 from .generator import GeneratorAD, GeneratorDA
 from .discriminator import Discriminator
-from .predictor import Scorer
+from .scorer import Scorer

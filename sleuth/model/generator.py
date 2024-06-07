@@ -8,7 +8,7 @@ class GeneratorAD(Extractor):
                  num_blocks=2,
                  mem_dim=512, 
                  threshold=0.01, 
-                 temperature=1):
+                 temperature=0.05):
         super().__init__(in_dim, hidden_dim, num_blocks)
         self.Memory = MemoryBlock(mem_dim, hidden_dim[-1], threshold, temperature)
         self.z_dim = hidden_dim[-1]

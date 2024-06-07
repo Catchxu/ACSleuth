@@ -2,6 +2,7 @@ import numpy as np
 import scanpy as sc
 import anndata as ad
 from math import e
+from scipy.sparse import issparse
 from typing import Sequence, Optional, Union
 
 from ._utils import clear_warnings
@@ -40,8 +41,11 @@ def read_dataset(dir, names):
             data_name += '.h5ad'
 
         input_dir = data_dir + data_name
-        adata = sc.read(input_dir)
-    
+        adata = sc.read_h5ad(input_dir)
+
+        if issparse(adata.X):
+            adata.X = adata.X.toarray()
+
         return adata
 
     if isinstance(names, str):
