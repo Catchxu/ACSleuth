@@ -1,4 +1,4 @@
-# ACSleuth (IJCAI 2024)
+# ACSleuth (IJCAI 2024 Accepted)
 
 <br/>
 <div align=center>
