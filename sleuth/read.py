@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 import scanpy as sc
 import anndata as ad
@@ -73,3 +74,19 @@ def read(ref_dir: str, ref_name: Union[Sequence[str], str],
         tgt = preprocess_data(tgt, ref.var_names)
 
     return ref, tgt
+
+
+def save_pkl(ref_data: ad.AnnData, tgt_data: ad.AnnData, save_path: str):
+    data = {'reference': ref_data, 'target': tgt_data}
+
+    with open(save_path, 'wb') as f:
+	    pickle.dump(data, f)
+
+
+def load_pkl(load_path: str):
+    with open(load_path, 'rb') as f:
+        data = pickle.load(f)
+    
+    ref_data = data['reference']
+    tgt_data = data['target']
+    return ref_data, tgt_data

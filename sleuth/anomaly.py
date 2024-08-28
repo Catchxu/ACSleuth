@@ -1,3 +1,4 @@
+import argparse
 import anndata as ad
 from tqdm import tqdm
 
@@ -214,3 +215,11 @@ class AnomalyModel:
         fake_d = torch.cat(fake_d, dim=0)
         delta = torch.norm(real_d - fake_d, dim=1, p=2).reshape(-1)
         return delta.cpu().detach().numpy()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='ACSleuth for anomaly detection.')
+    configs = AnomalyConfigs()
+
+    # Data path arguments
+    parser.add_argument('--data_path', )
