@@ -42,7 +42,7 @@ class SNLinearBlock(nn.Module):
 
 
 class ResNetBlock(nn.Module):
-    def __init__(self, dim, spectral_norm: False):
+    def __init__(self, dim, spectral_norm: bool=False):
         super().__init__()
         if spectral_norm:
             self.fc = nn.Sequential(
