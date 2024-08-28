@@ -119,13 +119,13 @@ class MemoryBlock(nn.Module):
         self.mem.data.uniform_(-stdv, stdv)
 
     @torch.no_grad()
-    def update_mem(self, z):
-        batch_size = z.shape[0]  # z, B x C
+    def update_mem(self, z: torch.Tensor):
+        batch_size = z.shape[0]  # z: B x C
         ptr = int(self.mem_ptr)
         assert self.mem_dim % batch_size == 0
 
         # replace the keys at ptr (dequeue and enqueue)
-        self.mem[ptr:ptr + batch_size, :] = z  # mem, M x C
+        self.mem[ptr:ptr + batch_size, :] = z  # mem: M x C
         ptr = (ptr + batch_size) % self.mem_dim  # move pointer
 
         self.mem_ptr[0] = ptr
