@@ -1,12 +1,13 @@
 import math
 import torch
 import torch.nn as nn
+from typing import Optional
 
 from .block import LinearBlock
 
 
 class Scorer(nn.Module):
-    def __init__(self, in_dim, anomaly_ratio, hidden_dim=[512, 256]):
+    def __init__(self, in_dim, anomaly_ratio: Optional[float], hidden_dim=[512, 256]):
         super().__init__()
         
         pred_layers = []
@@ -31,9 +32,12 @@ class Scorer(nn.Module):
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight)
     
-    def _est_m_n(self, p):
+    def _est_m_n(self, p: torch.Tensor):
         num = p.shape[0]
-        n = torch.sum(p)
+        if self.ratio is None:
+            n = torch.sum(p)
+        else:
+            n = int(num * self.ratio)
         m = num - n
         return m, n
 

@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-from typing import Union
+from typing import Union, Dict, Any
 
 
 def seed_everything(seed):
@@ -41,6 +41,13 @@ def select_device(GPU: Union[bool, str] = True,):
         device = torch.device("cpu")
 
     return device
+
+
+def update_configs_with_args(configs, args_dict: Dict[str, Any]):
+    for key, value in args_dict.items():
+        # Only update if the argument is provided and valid
+        if hasattr(configs, key) and value is not None:
+            setattr(configs, key, value)
 
 
 @clear_warnings()

@@ -1,6 +1,7 @@
 import argparse
 import anndata as ad
 from tqdm import tqdm
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -8,13 +9,14 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from ._utils import seed_everything
+from .read import load_pkl
+from ._utils import seed_everything, update_configs_with_args
 from .configs import AnomalyConfigs
 from .model import GeneratorAD, Discriminator, Scorer
 
 
 class AnomalyModel:
-    def __init__(self, configs: AnomalyConfigs, anomaly_ratio: float):
+    def __init__(self, configs: AnomalyConfigs, anomaly_ratio: Optional[float]):
         # Number of epochs
         self.prepare_epochs = configs.prepare_epochs
         self.train_epochs = configs.train_epochs
@@ -86,7 +88,7 @@ class AnomalyModel:
         tqdm.write('Anomalies have been detected.')
         return p.cpu().detach().numpy().reshape(-1)
 
-    def _init_model(self, configs: AnomalyConfigs, anomaly_ratio: float):
+    def _init_model(self, configs: AnomalyConfigs, anomaly_ratio: Optional[float]):
         self.D = Discriminator(**configs.Discriminator).to(self.device)
         self.G = GeneratorAD(**configs.Generator).to(self.device)
         self.S = Scorer(anomaly_ratio=anomaly_ratio, **configs.Scorer).to(self.device)
@@ -219,7 +221,28 @@ class AnomalyModel:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ACSleuth for anomaly detection.')
-    configs = AnomalyConfigs()
 
-    # Data path arguments
-    parser.add_argument('--data_path', )
+    parser.add_argument('--data_path', type=str, help='Path to read the saved dataset.')
+    parser.add_argument('--gene_dim', type=int, default=3000, help='Path to read the saved dataset.')
+    parser.add_argument('--prepare_epochs', type=int, help='Epochs of preparing stage.')
+    parser.add_argument('--train_epochs', type=int, help='Epochs of training stage.')
+    parser.add_argument('--score_epochs', type=int, help='Epochs of updating scorer.')
+    parser.add_argument('--batch_size', type=int, help='Batch size for training model.')
+    parser.add_argument('--learning_rate', type=float, help='Learning rate for training model.')
+    parser.add_argument('--n_critic', type=int, help='Train discriminator for n_critic times as every generator trained.')
+    parser.add_argument('--loss_weight', type=Dict[str, float], help='Loss weight for training stage.')
+    parser.add_argument('--random_state', type=Dict[str, float], help='Set random seed.')
+
+    args = parser.parse_args()
+    args_dict = vars(args)
+
+    # Load dataset
+    ref, tgt = load_pkl(args_dict.data_path)
+
+    # update configs
+    configs = AnomalyConfigs(args_dict.gene_dim)
+    update_configs_with_args(configs, args_dict)
+
+    model = AnomalyModel(configs)
+    model.detect(ref)
+    score = model.predict(tgt)
