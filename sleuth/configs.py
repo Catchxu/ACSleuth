@@ -15,8 +15,8 @@ class AnomalyConfigs:
         self.learning_rate = 1e-4
         self.n_critic = 2
         self.loss_weight = {'w_rec': 30, 'w_adv': 1, 'w_gp': 10}
-        self.device = select_device('cuda')
         self.random_state = 2024
+        self.device = select_device('cuda')
 
         # model
         self.Discriminator = {
@@ -37,6 +37,20 @@ class AnomalyConfigs:
         self.Scorer = {
             'in_dim': self.gene_dim,
             'hidden_dim': [512, 256]
+        }
+    
+    def to_dict(self):
+        return {
+            'gene_dim': self.gene_dim,
+            'prepare_epochs': self.prepare_epochs,
+            'train_epochs': self.train_epochs,
+            'score_epochs': self.score_epochs,
+            'batch_size': self.batch_size,
+            'learning_rate': self.learning_rate,
+            'n_critic': self.n_critic,
+            'w_rec': self.loss_weight['w_rec'],
+            'w_adv': self.loss_weight['w_adv'],
+            'w_gp': self.loss_weight['w_gp']
         }
 
 

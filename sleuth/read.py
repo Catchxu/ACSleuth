@@ -76,8 +76,8 @@ def read(ref_dir: str, ref_name: Union[Sequence[str], str],
     return ref, tgt
 
 
-def save_pkl(ref_data: ad.AnnData, tgt_data: ad.AnnData, save_path: str):
-    data = {'reference': ref_data, 'target': tgt_data}
+def save_pkl(ref_data, tgt_data, label, save_path):
+    data = {'reference': ref_data, 'target': tgt_data, 'label': label}
 
     with open(save_path, 'wb') as f:
 	    pickle.dump(data, f)
@@ -89,4 +89,5 @@ def load_pkl(load_path: str):
     
     ref_data = data['reference']
     tgt_data = data['target']
-    return ref_data, tgt_data
+    label = data['label']
+    return ref_data, tgt_data, label
