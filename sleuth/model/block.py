@@ -109,8 +109,8 @@ class MemoryBlock(nn.Module):
         self.z_dim = z_dim
         self.shrink_thres = shrink_thres
         self.temperature = temperature
-        self.mem = torch.randn(self.mem_dim, self.z_dim)
-        self.mem_ptr = torch.zeros(1, dtype=torch.long)
+        self.register_buffer("mem", torch.randn(self.mem_dim, self.z_dim))
+        self.register_buffer("mem_ptr", torch.zeros(1, dtype=torch.long))
 
         self._init_parameters()
 

@@ -27,13 +27,13 @@ def clear_warnings(category=FutureWarning):
     return outwrapper
 
 
-def select_device(GPU: Union[bool, str] = True,):
+def select_device(GPU: Union[bool, str] = True):
     if GPU:
         if torch.cuda.is_available():
             if isinstance(GPU, str):
                 device = torch.device(GPU)
             else:
-                device = torch.device('cuda:0')
+                device = torch.device('cuda')
         else:
             print("GPU isn't available, and use CPU to train Docs.")
             device = torch.device("cpu")

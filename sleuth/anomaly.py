@@ -110,10 +110,10 @@ class AnomalyModel:
                 for data in self.loader:
                     data = data.to(self.device)
 
+                    self._UpdateG(data, train)
+
                     for _ in range(self.n_critic):
                         self._UpdateD(data, train)
-
-                    self._UpdateG(data, train)
         
                 t.set_postfix(G_Loss = self.G_loss.item(),
                               D_Loss = self.D_loss.item())
@@ -157,7 +157,7 @@ class AnomalyModel:
         self.G.Memory.update_mem(z)
 
     def _check(self, tgt: ad.AnnData):
-        if (tgt.var_names != self.genes).any():
+        if (tgt.var_names != self.gene_names).any():
             raise RuntimeError('Target and reference data have different genes.')
 
         if (self.G is None or self.D is None):
