@@ -25,7 +25,7 @@ class AnomalyModel:
         self.batch_size = configs.batch_size
         self.learning_rate = configs.learning_rate
         self.n_critic = configs.n_critic
-        self.weight = configs.loss_weight
+        self.loss_weight = configs.loss_weight
         self.device = configs.device
 
         # Initial model
@@ -132,7 +132,7 @@ class AnomalyModel:
         d1 = torch.mean(self.D(data))
         d2 = torch.mean(self.D(fake_data.detach()))
         gp = self.D.gradient_penalty(data, fake_data.detach())
-        self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
+        self.D_loss = - d1 + d2 + gp * self.loss_weight['w_gp']
 
         self.opt_D.zero_grad()
         self.D_loss.backward()
