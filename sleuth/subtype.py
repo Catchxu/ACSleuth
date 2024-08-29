@@ -2,7 +2,6 @@ import anndata as ad
 from tqdm import tqdm
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR

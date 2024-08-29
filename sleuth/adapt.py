@@ -132,7 +132,7 @@ class AdaptModel:
         d1 = torch.mean(self.D(ref))
         d2 = torch.mean(self.D(fake_ref.detach()))
         gp = self.D.gradient_penalty(ref, fake_ref.detach())
-        self.D_loss = - d1 + d2 + gp * self.weight['w_gp']
+        self.D_loss = - d1 + d2 + gp * self.loss_weight['w_gp']
 
         self.opt_D.zero_grad()
         self.D_loss.backward()
