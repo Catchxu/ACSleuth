@@ -24,6 +24,12 @@ python experiment/run_anomaly.py
 ```
 And the evaluation results are saved in `./result/TME_3000.csv`.
 
+If you want to run the code on other dataset (e.g., Cancer_3000), just run the following command:
+```
+python experiment/run_anomaly.py --data_name Cancer_3000
+```
+And the evaluation results are saved in `./result/Cancer_3000.csv`.
+
 
 ### Sensitive Analysis about Loss Weight
 We provide the sensitive analysis about loss weight in anomalous cells detection experiment, whose codes are located in `./experiment/run_sensitive.py`. To run the code on TME_3000, just run the following command:
