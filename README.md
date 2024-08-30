@@ -15,7 +15,7 @@ Fined-grained anomalous cell detection from affected tissues is critical for cli
 
 ## Get Started
 ### Prepare Data
-ACSleuth accepts single-cell omics data in AnnData format as input. You need to prepare a reference dataset consisting of normal cells, a target dataset consisting of both normal and anomaly cells (to be detected), and a label/ground truth file for validating the results. To better organize the data, you can use `sleuth.save_pkl` to package these datasets into a pkl file for storage. Here, we have provided a preprocessed and well organized demo dataset, `TME_3000.pkl`, located in `./data/`. The subsequent tutorials will be based on this dataset.
+ACSleuth accepts single-cell omics data in AnnData format as input. You need to prepare a reference dataset consisting of normal cells, a target dataset consisting of both normal and anomaly cells (to be detected), and a label/ground truth file for validating the results. To better organize the data, you can use `sleuth.save_pkl` to package these datasets into a pkl file for storage. Here, we have provided a preprocessed and well organized demo datasets, `TME_3000.pkl` and `Cancer_3000.pkl`, located in `./data/`. The subsequent tutorials will be based on this dataset.
 
 ### Anomalous Cells Detection
 We provide the anomalous cells detection experiment, whose codes are located in `./experiment/run_anomaly.py`. To run the code on TME_3000, just run the following command:
