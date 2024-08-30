@@ -1,0 +1,2 @@
+gene_dim,prepare_epochs,train_epochs,score_epochs,batch_size,learning_rate,n_critic,w_rec,w_adv,w_gp,roc_auc,ap,f1
+3000,50,20,20,128,0.0001,2,30,1,10,0.9186386521155504,0.9267405892747378,0.8649851632047477
