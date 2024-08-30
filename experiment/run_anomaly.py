@@ -14,8 +14,8 @@ from sleuth._utils import update_configs_with_args, evaluate
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ACSleuth for anomaly detection.')
 
-    parser.add_argument('--data_path', type=str, default='./data/TME_3000.pkl', help='Path to read the saved dataset.')
-    parser.add_argument('--gene_dim', type=int, default=3000, help='Path to read the saved dataset.')
+    parser.add_argument('--data_name', type=str, default='TME_3000', help='Name of the saved dataset to be loaded.')
+    parser.add_argument('--gene_dim', type=int, default=3000, help='Dimension or number of genes.')
     parser.add_argument('--prepare_epochs', type=int, help='Epochs of preparing stage.')
     parser.add_argument('--train_epochs', type=int, help='Epochs of training stage.')
     parser.add_argument('--score_epochs', type=int, help='Epochs of updating scorer.')
@@ -29,7 +29,8 @@ if __name__ == '__main__':
     args_dict = vars(args)
 
     # Load dataset
-    ref, tgt, label = load_pkl(args_dict['data_path'])
+    path = f'./data/{args_dict['data_name']}.pkl'
+    ref, tgt, label = load_pkl(path)
 
     # update configs
     configs = AnomalyConfigs(args_dict['gene_dim'])
@@ -48,4 +49,4 @@ if __name__ == '__main__':
         'f1': f1
     })
     results_df = pd.DataFrame(config_dict, index=[0])
-    results_df.to_csv('./result/TME_3000.csv', index=False)
+    results_df.to_csv(f'./result/{args_dict['data_name']}.csv', index=False)
