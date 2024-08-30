@@ -29,8 +29,8 @@ if __name__ == '__main__':
     args_dict = vars(args)
 
     # Load dataset
-    path = f'./data/{args_dict['data_name']}.pkl'
-    ref, tgt, label = load_pkl(path)
+    name = args_dict['data_name']
+    ref, tgt, label = load_pkl(f'./data/{name}.pkl')
 
     # update configs
     configs = AnomalyConfigs(args_dict['gene_dim'])
@@ -49,4 +49,4 @@ if __name__ == '__main__':
         'f1': f1
     })
     results_df = pd.DataFrame(config_dict, index=[0])
-    results_df.to_csv(f'./result/{args_dict['data_name']}.csv', index=False)
+    results_df.to_csv(f'./result/{name}.csv', index=False)
