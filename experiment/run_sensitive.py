@@ -11,7 +11,7 @@ from sleuth._utils import update_configs_with_args, evaluate
 
 
 if __name__ == '__main__':
-    data_path = './data/TME_3000.pkl'
+    data_path = './data/Cancer_3000.pkl'
     ref, tgt, label = load_pkl(data_path)
 
     configs = AnomalyConfigs(gene_dim=3000)
